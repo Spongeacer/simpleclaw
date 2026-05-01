@@ -19,6 +19,7 @@ import {
   createSpawnMultipleTool,
   createMemorySearchTool,
   createMemorySaveTool,
+  createUserMemoryTool,
   createWebSearchTool,
   createWebFetchTool,
   createGlobTool,
@@ -34,6 +35,7 @@ import { BackgroundWorker } from "../agent-runtime/background-worker.js";
 import { AgentPool } from "../agent-runtime/agent-pool.js";
 import { AgentEngineFactory } from "../agent-runtime/agent-engine-factory.js";
 import { WorkspaceMemoryIndex } from "../agent-runtime/memory/index.js";
+import { FileUserMemory } from "../agent-runtime/memory/user-memory.js";
 import { loadInstructions, formatInstruction } from "../agent-runtime/instruction-loader.js";
 import { loadAllSkills, formatSkillList, resolveSkillScanDirs } from "../agent-runtime/skill/skill-loader.js";
 import { createSkillTool } from "../agent-runtime/skill/skill-tool.js";
@@ -92,8 +94,15 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
     }
   }
 
+  // Assemble User Memory (bounded cross-session memory)
+  const userMemory = await FileUserMemory.create(
+    (process.env.SIMPLECLAW_HOME ?? `${process.env.HOME || process.env.USERPROFILE || "."}/.simpleclaw`) + "/memories",
+    logger,
+  );
+  tools.register(createUserMemoryTool(userMemory, logger));
+
   // Assemble Agent Pool for multi-agent collaboration
-  const engineFactory = new AgentEngineFactory(store, approval, logger);
+  const engineFactory = new AgentEngineFactory(store, approval, logger, undefined, userMemory);
   const pool = new AgentPool(agentConfig, store, router, tools, logger, engineFactory);
   tools.register(createSpawnTool(pool, logger));
   tools.register(createSpawnMultipleTool(pool, logger));
@@ -157,7 +166,7 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
 
   // Assemble Core Engine
   const llm = router.resolve(agentConfig.model);
-  const engine = new AgentEngine(agentConfig, store, llm, tools, approval, logger, memory, instructions, skillsPrompt);
+  const engine = new AgentEngine(agentConfig, store, llm, tools, approval, logger, memory, instructions, skillsPrompt, undefined, undefined, userMemory);
 
   // Assemble Task Queue + Background Worker
   const taskQueue = new MemoryTaskQueue();

@@ -243,8 +243,8 @@ export interface IMemoryIndex {
   /** Archive conversation turns before compaction (lossless context management). */
   archiveTurns(sessionId: SessionId, turns: ConversationTurn[]): Promise<void>;
 
-  /** Search archived conversation history for a specific session. */
-  searchHistory(sessionId: SessionId, query: string, opts?: { maxResults?: number }): Promise<MemoryChunk[]>;
+  /** Search archived conversation history. If sessionId is provided, scope to that session; otherwise search globally across all sessions. */
+  searchHistory(sessionId: SessionId | undefined, query: string, opts?: { maxResults?: number }): Promise<MemoryChunk[]>;
 }
 
 export interface MemoryChunk {
@@ -302,6 +302,20 @@ export type TaskHandler = (taskId: string, notif: TaskNotification) => void;
 export interface INotificationBus {
   subscribe(taskId: string, handler: TaskHandler): () => void;
   publish(taskId: string, notif: TaskNotification): void;
+}
+
+// ─── User Memory (Bounded cross-session memory) ───────────────────────────────
+
+export interface IUserMemory {
+  readonly memoryPath: string;
+  readonly userPath: string;
+  readonly memoryCharLimit: number;
+  readonly userCharLimit: number;
+  load(): Promise<{ memory: string; user: string; memoryUsage: string; userUsage: string }>;
+  addEntry(type: "memory" | "user", entry: string): Promise<{ success: boolean; error?: string; usage: string }>;
+  replaceEntry(type: "memory" | "user", index: number, entry: string): Promise<{ success: boolean; error?: string; usage: string }>;
+  removeEntry(type: "memory" | "user", index: number): Promise<{ success: boolean; error?: string; usage: string }>;
+  listEntries(type: "memory" | "user"): Promise<{ entries: string[]; usage: string }>;
 }
 
 // ─── Agent Engine ─────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import type {
   ILogger,
   ISessionStore,
   IToolRegistry,
+  IUserMemory,
 } from "../core/interfaces.js";
 import type { AgentConfig } from "../core/types.js";
 
@@ -22,9 +23,10 @@ export class AgentEngineFactory implements IAgentEngineFactory {
     private approval: IApprovalGate,
     private logger: ILogger,
     private contextEngine?: IContextEngine,
+    private userMemory?: IUserMemory,
   ) {}
 
   create(config: AgentConfig, llm: ILLMClient, tools: IToolRegistry): IAgentEngine {
-    return new AgentEngine(config, this.store, llm, tools, this.approval, this.logger, undefined, undefined, undefined, undefined, this.contextEngine);
+    return new AgentEngine(config, this.store, llm, tools, this.approval, this.logger, undefined, undefined, undefined, undefined, this.contextEngine, this.userMemory);
   }
 }

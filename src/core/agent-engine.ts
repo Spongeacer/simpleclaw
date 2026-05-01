@@ -24,6 +24,7 @@ import type {
   ISessionStore,
   IToolRegistry,
   IToolCallHooks,
+  IUserMemory,
 } from "./interfaces.js";
 import { ContextCompactor, DEFAULT_COMPACTOR_CONFIG } from "./compactor.js";
 import { DAGExecutor, HookRegistry, ReplanPolicy, type Plan, type ExecutionResult } from "../agent-runtime/plan/index.js";
@@ -52,6 +53,7 @@ export class AgentEngine implements IAgentEngine {
     private skills?: string,
     private toolHooks?: IToolCallHooks,
     contextEngine?: IContextEngine,
+    private userMemory?: IUserMemory,
   ) {
     this.contextEngine = contextEngine ?? new ContextCompactor(llm, logger);
   }
@@ -86,9 +88,9 @@ export class AgentEngine implements IAgentEngine {
     let answered = false;
     const preTurnCount = session.turns.length; // track new turns for context-engine ingestion
 
-    // Ensure stable system prompt is built once
+    // Ensure stable system prompt is built once (async for user memory loading)
     if (!this.stableSystemPrompt) {
-      this.stableSystemPrompt = this.buildStableSystemPrompt();
+      this.stableSystemPrompt = await this.buildStableSystemPrompt();
     }
 
     for (let i = 0; i < maxIterations; i++) {
@@ -443,13 +445,40 @@ export class AgentEngine implements IAgentEngine {
   }
 
   /** Build the stable (cacheable) portion of the system prompt. */
-  private buildStableSystemPrompt(): string {
+  private async buildStableSystemPrompt(): Promise<string> {
     const parts: string[] = [];
     parts.push(this.buildBasePersona());
     parts.push(this.buildToolGuidance());
     parts.push(this.buildWorkspaceContext());
+    const memSection = await this.buildUserMemorySection();
+    if (memSection) parts.push(memSection);
     parts.push(this.buildFormattingRules());
     return parts.join("\n\n");
+  }
+
+  /** Inject bounded user memory as a frozen snapshot (cache-friendly). */
+  private async buildUserMemorySection(): Promise<string> {
+    if (!this.userMemory) return "";
+    try {
+      const { memory, user, memoryUsage, userUsage } = await this.userMemory.load();
+      const lines: string[] = [];
+      if (memory.trim()) {
+        lines.push(`══════════════════════════════════════════════`);
+        lines.push(`MEMORY (project facts & lessons) [${memoryUsage}]`);
+        lines.push(`══════════════════════════════════════════════`);
+        lines.push(memory);
+      }
+      if (user.trim()) {
+        lines.push(`══════════════════════════════════════════════`);
+        lines.push(`USER PROFILE (preferences & style) [${userUsage}]`);
+        lines.push(`══════════════════════════════════════════════`);
+        lines.push(user);
+      }
+      return lines.join("\n");
+    } catch (err) {
+      this.logger.warn("Failed to load user memory", { error: String(err) });
+      return "";
+    }
   }
 
   private assessComplexity(turns: ConversationTurn[]): "simple" | "complex" {

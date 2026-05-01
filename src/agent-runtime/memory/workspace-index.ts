@@ -306,7 +306,7 @@ export class WorkspaceMemoryIndex implements IMemoryIndex {
     this.logger.debug("Turns archived", { sessionId, count: turns.length });
   }
 
-  async searchHistory(sessionId: string, query: string, opts?: { maxResults?: number }): Promise<MemorySearchResult[]> {
+  async searchHistory(sessionId: string | undefined, query: string, opts?: { maxResults?: number }): Promise<MemorySearchResult[]> {
     if (!this.enabled) return [];
     return this.store.searchHistory(sessionId, query, opts?.maxResults ?? 5);
   }

@@ -299,7 +299,7 @@ export class SqliteMemoryStore {
     }
   }
 
-  searchHistory(sessionId: string, query: string, maxResults: number = 5): Array<{
+  searchHistory(sessionId: string | undefined, query: string, maxResults: number = 5): Array<{
     path: string;
     text: string;
     startLine: number;
@@ -313,19 +313,33 @@ export class SqliteMemoryStore {
         .replace(/"/g, '""')
         .replace(/[*()]/g, " ")
         .replace(/\b(AND|OR|NOT|NEAR)\b/g, m => `"${m.toLowerCase()}"`);
-      const stmt = this.db.prepare(
-        `SELECT h.content, h.turn_id, h.role, h.timestamp, rank AS score
-         FROM session_history_fts fts
-         JOIN session_history h ON fts.turn_id = h.turn_id AND fts.session_id = h.session_id
-         WHERE session_history_fts MATCH ? AND h.session_id = ?
-         ORDER BY rank
-         LIMIT ?`
-      );
-      const rows = stmt.all(safeQuery, sessionId, maxResults) as Array<{
-        content: string; turn_id: string; role: string; timestamp: number; score: number;
-      }>;
+
+      let rows: Array<{ content: string; turn_id: string; role: string; timestamp: number; score: number; session_id?: string }>;
+
+      if (sessionId) {
+        const stmt = this.db.prepare(
+          `SELECT h.content, h.turn_id, h.role, h.timestamp, rank AS score
+           FROM session_history_fts fts
+           JOIN session_history h ON fts.turn_id = h.turn_id AND fts.session_id = h.session_id
+           WHERE session_history_fts MATCH ? AND h.session_id = ?
+           ORDER BY rank
+           LIMIT ?`
+        );
+        rows = stmt.all(safeQuery, sessionId, maxResults) as typeof rows;
+      } else {
+        const stmt = this.db.prepare(
+          `SELECT h.content, h.turn_id, h.role, h.timestamp, rank AS score, h.session_id
+           FROM session_history_fts fts
+           JOIN session_history h ON fts.turn_id = h.turn_id AND fts.session_id = h.session_id
+           WHERE session_history_fts MATCH ?
+           ORDER BY rank
+           LIMIT ?`
+        );
+        rows = stmt.all(safeQuery, maxResults) as typeof rows;
+      }
+
       return rows.map(r => ({
-        path: `${r.role} (${new Date(r.timestamp).toISOString()})`,
+        path: `${r.role} (${new Date(r.timestamp).toISOString()})${r.session_id ? ` [${r.session_id.slice(0, 8)}]` : ""}`,
         text: r.content,
         startLine: 0,
         endLine: 0,

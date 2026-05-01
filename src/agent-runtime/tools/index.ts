@@ -12,6 +12,7 @@ export { createSpawnTool } from "./spawn.js";
 export { createSpawnMultipleTool } from "./spawn-multiple.js";
 export { createMemorySearchTool } from "./memory-search.js";
 export { createMemorySaveTool } from "./memory-save.js";
+export { createUserMemoryTool } from "./user-memory.js";
 export { createWebSearchTool } from "./web-search.js";
 export { createWebFetchTool } from "./web-fetch.js";
 export { createGlobTool } from "./glob.js";

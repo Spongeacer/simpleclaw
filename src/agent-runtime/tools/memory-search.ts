@@ -70,19 +70,13 @@ export function createMemorySearchTool(memory: IMemoryIndex, logger: ILogger): I
       }
 
       if (mode === "auto" || mode === "history") {
-        if (!sessionId) {
-          lines.push("=== History ===");
-          lines.push("(Provide session_id to search archived session history)");
-          lines.push("");
-        } else {
-          const history = await memory.searchHistory(sessionId, query, { maxResults });
-          if (history.length > 0) {
-            lines.push("=== Session History ===");
-            for (const h of history) {
-              lines.push(`[${h.path}] ${h.text.slice(0, 300)}${h.text.length > 300 ? "..." : ""}`);
-            }
-            lines.push("");
+        const history = await memory.searchHistory(sessionId, query, { maxResults });
+        if (history.length > 0) {
+          lines.push(sessionId ? "=== Session History ===" : "=== Cross-Session History ===");
+          for (const h of history) {
+            lines.push(`[${h.path}] ${h.text.slice(0, 300)}${h.text.length > 300 ? "..." : ""}`);
           }
+          lines.push("");
         }
       }
 
