@@ -34,12 +34,25 @@ interface SessionWorkingSet {
   files: string[]; // most recent first
 }
 
+interface NudgeState {
+  turnsSinceMemoryNudge: number;
+  toolItersSinceSkillNudge: number;
+  memoryNudgeInterval: number;
+  skillNudgeInterval: number;
+}
+
 export class AgentEngine implements IAgentEngine {
   private contextEngine: IContextEngine;
   private workingSets = new Map<SessionId, SessionWorkingSet>();
   private stableSystemPrompt: string | null = null;
   private replanPolicy = new ReplanPolicy();
   private planExecutor = new DAGExecutor();
+  private nudgeState: NudgeState = {
+    turnsSinceMemoryNudge: 0,
+    toolItersSinceSkillNudge: 0,
+    memoryNudgeInterval: 10,
+    skillNudgeInterval: 10,
+  };
 
   constructor(
     private config: AgentConfig,
@@ -87,6 +100,9 @@ export class AgentEngine implements IAgentEngine {
     const maxIterations = this.config.maxIterations ?? 10;
     let answered = false;
     const preTurnCount = session.turns.length; // track new turns for context-engine ingestion
+
+    // Nudge: increment counter at the start of each user turn
+    this.nudgeState.turnsSinceMemoryNudge++;
 
     // Ensure stable system prompt is built once (async for user memory loading)
     if (!this.stableSystemPrompt) {
@@ -253,6 +269,9 @@ export class AgentEngine implements IAgentEngine {
             }
           }
         }
+
+        // Nudge: check if agent proactively used memory/skill tools this iteration
+        this.updateNudgeCounters(session.turns);
 
         yield { type: "thinking", text: `Processing results (${i + 1}/${maxIterations})...` };
         continue;
@@ -439,6 +458,12 @@ export class AgentEngine implements IAgentEngine {
     const workingSet = this.buildWorkingSet(turns, sessionId);
     if (workingSet) {
       parts.push(workingSet);
+    }
+
+    // SLOT: NUDGE — gentle reminder to persist knowledge
+    const nudge = this.buildNudgeSection();
+    if (nudge) {
+      parts.push(nudge);
     }
 
     return parts.join("\n\n");
@@ -876,6 +901,51 @@ export class AgentEngine implements IAgentEngine {
     if (ws.files.length > 20) {
       ws.files = ws.files.slice(0, 20);
     }
+  }
+
+  // ─── Nudge Engine (Learning Loop Triggers) ──────────────────────────────────
+
+  /**
+   * Update nudge counters after each tool iteration.
+   * If the agent proactively used user_memory or skill_manage tools,
+   * reset the corresponding counter (no need to nudge).
+   */
+  private updateNudgeCounters(turns: ConversationTurn[]): void {
+    this.nudgeState.toolItersSinceSkillNudge++;
+
+    const lastAssistant = [...turns].reverse().find(t => t.role === "assistant" && t.toolCalls && t.toolCalls.length > 0);
+    if (!lastAssistant?.toolCalls) return;
+
+    const toolNames = new Set(lastAssistant.toolCalls.map(tc => tc.name));
+    if (toolNames.has("user_memory")) {
+      this.nudgeState.turnsSinceMemoryNudge = 0;
+      this.logger.debug("Nudge: memory tool used, counter reset");
+    }
+    if (toolNames.has("skill_manage")) {
+      this.nudgeState.toolItersSinceSkillNudge = 0;
+      this.logger.debug("Nudge: skill tool used, counter reset");
+    }
+  }
+
+  /**
+   * Build a gentle nudge message if counters exceed thresholds.
+   * Injected into the dynamic system prompt to remind the agent
+   * to persist knowledge without being pushy.
+   */
+  private buildNudgeSection(): string | undefined {
+    const lines: string[] = [];
+    const mem = this.nudgeState.turnsSinceMemoryNudge >= this.nudgeState.memoryNudgeInterval;
+    const skill = this.nudgeState.toolItersSinceSkillNudge >= this.nudgeState.skillNudgeInterval;
+
+    if (mem && this.tools.get("user_memory")) {
+      lines.push("💡 You have used many turns without saving anything to memory. If you learned something important about the user or project, consider calling `user_memory` with action='add'.");
+    }
+    if (skill && this.tools.get("skill_manage")) {
+      lines.push("💡 You have completed many tool iterations without creating a skill. If this workflow is reusable, consider calling `skill_manage` with action='create'.");
+    }
+
+    if (lines.length === 0) return undefined;
+    return ["=== NUDGE ===", "", ...lines].join("\n");
   }
 
   /** Clean up memory for a deleted session. Call when session is explicitly deleted. */
