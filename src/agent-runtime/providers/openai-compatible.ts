@@ -15,6 +15,7 @@ export class OpenAICompatibleClient implements ILLMClient {
   readonly modelRef: ModelRef;
   private apiKey: string;
   private baseURL: string;
+  private closed = false;
 
   constructor(modelRef: ModelRef, options: OpenAICompatibleOptions) {
     this.modelRef = modelRef;
@@ -22,10 +23,17 @@ export class OpenAICompatibleClient implements ILLMClient {
     this.baseURL = options.baseURL.replace(/\/$/, "");
   }
 
+  dispose(): void {
+    this.closed = true;
+  }
+
   async complete(
     messages: ILLMMessage[],
     tools?: IToolSchema[]
   ): Promise<ILLMResponse> {
+    if (this.closed) {
+      throw new Error("OpenAICompatibleClient has been disposed");
+    }
     const body: Record<string, unknown> = {
       model: this.modelRef.model,
       messages: messages.map((m) => this.toApiMessage(m)),

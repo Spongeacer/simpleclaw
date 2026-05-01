@@ -107,6 +107,7 @@ export interface ISessionStore {
   update(sessionId: SessionId, patch: Partial<Omit<ISessionState, "sessionId" | "createdAt">>): Promise<void>;
   delete(sessionId: SessionId): Promise<void>;
   list(agentId?: string): Promise<ISessionState[]>;
+  dispose?(): Promise<void> | void;
 }
 
 // ─── Approval ─────────────────────────────────────────────────────────────────
@@ -326,6 +327,7 @@ export interface IUserMemory {
 
 export interface IAgentEngine {
   chat(sessionId: SessionId, message: string): AsyncGenerator<IChatEvent>;
+  dispose?(): Promise<void> | void;
 }
 
 export interface IAgentEngineFactory {

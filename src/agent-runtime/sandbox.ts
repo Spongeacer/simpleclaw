@@ -75,7 +75,12 @@ export class DockerSandbox implements ISandbox {
   ) {
     this.guard = new PathGuard(config.allowedPaths, config.deniedPaths);
     // Ensure workspace directory exists
-    mkdir(this.workspace, { recursive: true }).catch(() => {});
+    mkdir(this.workspace, { recursive: true }).catch((err) => {
+      this.logger.error("Failed to create workspace directory", {
+        path: this.workspace,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   async readFile(rawPath: string): Promise<string> {
@@ -126,9 +131,13 @@ export class DockerSandbox implements ISandbox {
       return fn();
     })();
     this.fileLocks.set(path, current);
+    const timer = setTimeout(() => {
+      this.logger.warn("Write lock held for a long time", { path, timeoutMs: 300_000 });
+    }, 300_000);
     try {
       return await current;
     } finally {
+      clearTimeout(timer);
       // Only delete if we're still the current lock (not overwritten by a later one)
       if (this.fileLocks.get(path) === current) {
         this.fileLocks.delete(path);
@@ -370,15 +379,23 @@ export class DockerSandbox implements ISandbox {
     });
   }
 
+  dispose(): void {
+    this.fileLocks.clear();
+  }
+
   private killTree(child: ReturnType<typeof spawn>): void {
     const pid = child.pid;
     if (!pid) return;
     if (process.platform === "win32") {
       spawn("taskkill", ["/pid", String(pid), "/f", "/t"], { windowsHide: true });
     } else {
-      try { process.kill(-pid, "SIGTERM"); } catch { /* ignore kill errors */ }
+      try { process.kill(-pid, "SIGTERM"); } catch (err) {
+        this.logger.debug("SIGTERM failed", { pid, error: err instanceof Error ? err.message : String(err) });
+      }
       setTimeout(() => {
-        try { process.kill(-pid, "SIGKILL"); } catch { /* ignore kill errors */ }
+        try { process.kill(-pid, "SIGKILL"); } catch (err) {
+          this.logger.debug("SIGKILL failed", { pid, error: err instanceof Error ? err.message : String(err) });
+        }
       }, 3000);
     }
   }

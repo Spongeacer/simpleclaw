@@ -1,5 +1,5 @@
 /**
- * SimpleClaw Core â€?Agent Engine
+ * SimpleClaw Core ï¿½?Agent Engine
  * Pure logic. Zero platform dependencies. Zero I/O.
  * All external interactions go through injected interfaces.
  */
@@ -70,6 +70,31 @@ export class AgentEngine implements IAgentEngine {
 
   constructor(private opts: AgentEngineOptions) {
     this.contextEngine = opts.contextEngine ?? new ContextCompactor(opts.llm, opts.logger);
+    this._validateCompactorConfig();
+  }
+
+  private _validateCompactorConfig(): void {
+    const cfg = this.opts.config.compaction;
+    if (!cfg) return;
+    const { thresholdTokens, summaryMaxLength } = cfg;
+    if (thresholdTokens && summaryMaxLength && thresholdTokens <= summaryMaxLength * 0.5) {
+      this.opts.logger.warn(
+        "Compactor config may cause frequent compaction loops. " +
+        "Consider increasing thresholdTokens or decreasing summaryMaxLength.",
+        { thresholdTokens, summaryMaxLength }
+      );
+    }
+  }
+
+  async dispose(): Promise<void> {
+    this.nudgeStates.clear();
+    this.workingSets.clear();
+    this.stableSystemPrompt = null;
+    const ce = this.contextEngine as unknown as { dispose?: () => Promise<void> | void };
+    if (typeof ce.dispose === "function") {
+      await ce.dispose();
+    }
+    await this.opts.store.dispose?.();
   }
 
   /**
@@ -279,7 +304,7 @@ export class AgentEngine implements IAgentEngine {
         continue;
       }
 
-      // No tool calls â€?check for planning-only before treating as final answer
+      // No tool calls ï¿½?check for planning-only before treating as final answer
       if (this.detectPlanningOnly(response, session.turns)) {
         const steerTurn: ConversationTurn = {
           id: crypto.randomUUID(),
@@ -292,7 +317,7 @@ export class AgentEngine implements IAgentEngine {
         continue;
       }
 
-      // No tool calls â€?final answer
+      // No tool calls ï¿½?final answer
       const assistantTurn: ConversationTurn = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -343,7 +368,7 @@ export class AgentEngine implements IAgentEngine {
     if (this.stableSystemPrompt) {
       messages.push({ role: "system", content: this.stableSystemPrompt, cacheControl: { type: "ephemeral" } });
     }
-    // Dynamic suffix (varies per turn â€?not cached)
+    // Dynamic suffix (varies per turn ï¿½?not cached)
     const dynamicContent = await this.buildDynamicSystemPrompt(turns, sessionId, compactedSummary);
     if (dynamicContent) {
       messages.push({ role: "system", content: dynamicContent });
@@ -405,12 +430,12 @@ export class AgentEngine implements IAgentEngine {
 
     // DYNAMIC SLOTS
 
-    // SLOT: COMPACTED HISTORY â€?embedded into system prompt instead of a separate message
+    // SLOT: COMPACTED HISTORY ï¿½?embedded into system prompt instead of a separate message
     if (compactedSummary) {
       parts.push(`=== COMPACTED HISTORY ===\n\n${compactedSummary}`);
     }
 
-    // SLOT: PROTOCOL â€?decision rules + plan mode + custom system prompt
+    // SLOT: PROTOCOL ï¿½?decision rules + plan mode + custom system prompt
     const protocolParts: string[] = [];
     if (this.opts.config.systemPrompt) {
       protocolParts.push(this.opts.config.systemPrompt);
@@ -424,7 +449,7 @@ export class AgentEngine implements IAgentEngine {
       parts.push(protocolParts.join("\n\n"));
     }
 
-    // SLOT: INSTRUCTIONS â€?project-level AGENTS.md / CLAUDE.md (only once per session)
+    // SLOT: INSTRUCTIONS ï¿½?project-level AGENTS.md / CLAUDE.md (only once per session)
     const session = await this.opts.store.get(sessionId);
     const instructionsInjected = session?.metadata?.instructionsInjected === true;
     if (!instructionsInjected && this.opts.instructions) {
@@ -437,12 +462,12 @@ export class AgentEngine implements IAgentEngine {
       }
     }
 
-    // SLOT: SKILLS â€?available skills (injected every turn, lightweight)
+    // SLOT: SKILLS ï¿½?available skills (injected every turn, lightweight)
     if (this.opts.skills) {
       parts.push(this.opts.skills);
     }
 
-    // SLOT: KNOWLEDGE â€?relevant memory chunks (dynamic per-turn)
+    // SLOT: KNOWLEDGE ï¿½?relevant memory chunks (dynamic per-turn)
     if (this.opts.memory && this.opts.config.memory?.enabled !== false) {
       const knowledge = await this.buildKnowledge(turns);
       if (knowledge) {
@@ -450,25 +475,25 @@ export class AgentEngine implements IAgentEngine {
       }
     }
 
-    // SLOT: TIME â€?static timezone hint (cache-stable; dynamic clock is injected into user message)
+    // SLOT: TIME ï¿½?static timezone hint (cache-stable; dynamic clock is injected into user message)
     const timeSection = this.buildTimeSection();
     if (timeSection) {
       parts.push(timeSection);
     }
 
-    // SLOT: WORKING SET â€?recent files + contextual hints
+    // SLOT: WORKING SET ï¿½?recent files + contextual hints
     const workingSet = this.buildWorkingSet(turns, sessionId);
     if (workingSet) {
       parts.push(workingSet);
     }
 
-    // SLOT: LIVE USER MEMORY â€?current state (may differ from frozen snapshot)
+    // SLOT: LIVE USER MEMORY ï¿½?current state (may differ from frozen snapshot)
     const liveMemory = await this.buildLiveUserMemorySection();
     if (liveMemory) {
       parts.push(liveMemory);
     }
 
-    // SLOT: NUDGE â€?gentle reminder to persist knowledge
+    // SLOT: NUDGE ï¿½?gentle reminder to persist knowledge
     const nudge = this.buildNudgeSection(sessionId);
     if (nudge) {
       parts.push(nudge);
@@ -484,11 +509,11 @@ export class AgentEngine implements IAgentEngine {
       const { memory, user, memoryUsage, userUsage } = await this.opts.userMemory.load();
       const lines: string[] = [];
       if (memory.trim()) {
-        lines.push(`â•â•â•?LIVE MEMORY [${memoryUsage}] â•â•â•`);
+        lines.push(`â•â•ï¿½?LIVE MEMORY [${memoryUsage}] â•â•â•`);
         lines.push(memory);
       }
       if (user.trim()) {
-        lines.push(`â•â•â•?LIVE USER PROFILE [${userUsage}] â•â•â•`);
+        lines.push(`â•â•ï¿½?LIVE USER PROFILE [${userUsage}] â•â•â•`);
         lines.push(user);
       }
       return lines.length > 0 ? lines.join("\n") : undefined;
@@ -608,7 +633,7 @@ export class AgentEngine implements IAgentEngine {
     ];
 
     for (const s of schemas) {
-      lines.push(`â€?${s.name} â€?${s.description}`);
+      lines.push(`ï¿½?${s.name} ï¿½?${s.description}`);
     }
 
     lines.push("");
@@ -644,7 +669,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("");
     lines.push("=== ANTI-PLANNING-ONLY RULE ===");
     lines.push("NEVER respond with only a plan, description, or promise of future action.");
-    lines.push("If the task requires tools: call them NOW in this turn. Do not say 'I will do X' â€?just do X.");
+    lines.push("If the task requires tools: call them NOW in this turn. Do not say 'I will do X' ï¿½?just do X.");
     lines.push("If you have already called tools and are summarizing results: that is fine.");
     lines.push("If no tools are needed (general knowledge/chat): answer directly without tool calls.");
     lines.push("Violating this rule wastes turns and will trigger a retry with a correction prompt.");
@@ -680,9 +705,9 @@ export class AgentEngine implements IAgentEngine {
     // 2. Extract recent failures to avoid repeating
     const recentFailures = this.extractRecentFailures(turns);
     if (recentFailures.length > 0) {
-      hints.push(`Recent failures â€?do NOT repeat the same approach:`);
+      hints.push(`Recent failures ï¿½?do NOT repeat the same approach:`);
       for (const f of recentFailures) {
-        hints.push(`  â€?${f}`);
+        hints.push(`  ï¿½?${f}`);
       }
     }
 
@@ -747,10 +772,10 @@ export class AgentEngine implements IAgentEngine {
       "You are an expert software engineering assistant. Help users by reading, reasoning, and taking action.",
       "",
       "Workflow:",
-      "1. UNDERSTAND â€?Read the request. Ask clarifying questions if needed.",
-      "2. DECIDE â€?Does this need files/tools? General knowledge needs none.",
-      "3. ACT â€?Use the right tool. Read before editing. Plan before complex work.",
-      "4. VERIFY â€?Test or read back changes. Never assume correctness.",
+      "1. UNDERSTAND ï¿½?Read the request. Ask clarifying questions if needed.",
+      "2. DECIDE ï¿½?Does this need files/tools? General knowledge needs none.",
+      "3. ACT ï¿½?Use the right tool. Read before editing. Plan before complex work.",
+      "4. VERIFY ï¿½?Test or read back changes. Never assume correctness.",
       "",
       "Habits:",
       "- Prefer small, targeted changes over large rewrites.",
@@ -765,7 +790,7 @@ export class AgentEngine implements IAgentEngine {
       "",
       "### DECISION RULE",
       "Before calling any tool, ask: 'Does this task need files or code?'",
-      "- YES â†?use tools. NO (general knowledge, chat) â†?answer directly.",
+      "- YES ï¿½?use tools. NO (general knowledge, chat) ï¿½?answer directly.",
       "",
     ];
 
@@ -781,7 +806,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("");
     lines.push("**Sequential** (one step depends on the previous):");
     lines.push("  Use `spawn` to delegate sub-tasks one at a time. Each sub-agent's result informs the next.");
-    lines.push("  Example: 'Implement auth â†?Write tests â†?Run tests â†?Fix failures'");
+    lines.push("  Example: 'Implement auth ï¿½?Write tests ï¿½?Run tests ï¿½?Fix failures'");
     lines.push("");
     lines.push("**Parallel** (independent sub-tasks):");
     lines.push("  Use `spawn_multiple` to run sub-agents concurrently. Merge their outputs for synthesis.");
@@ -793,7 +818,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("  2. Spawn a tester/evaluator sub-agent to verify it (run tests, check quality).");
     lines.push("  3. If evaluation fails, use the feedback to spawn an improved version.");
     lines.push("  4. Repeat until the evaluation passes or max iterations reached.");
-    lines.push("  Do NOT give up after one failure â€?iterate with concrete feedback.");
+    lines.push("  Do NOT give up after one failure ï¿½?iterate with concrete feedback.");
     lines.push("");
 
     lines.push("### MEMORY PROTOCOL");
@@ -890,7 +915,7 @@ export class AgentEngine implements IAgentEngine {
       lines.push("");
       lines.push("Recently accessed files (most recent first):");
       for (const f of ws.files.slice(0, 10)) {
-        lines.push(`  â€?${f}`);
+        lines.push(`  ï¿½?${f}`);
       }
       if (ws.task) {
         lines.push("");
@@ -1009,7 +1034,7 @@ export class AgentEngine implements IAgentEngine {
    * on an actionable user request.
    */
   private detectPlanningOnly(response: ILLMResponse, turns: ConversationTurn[]): boolean {
-    // 1. Has real tool calls (not just think/update_plan)? â†?NOT planning-only
+    // 1. Has real tool calls (not just think/update_plan)? ï¿½?NOT planning-only
     const realToolCalls = (response.toolCalls ?? []).filter(
       tc => tc.name !== "think" && tc.name !== "update_plan"
     );
@@ -1031,14 +1056,14 @@ export class AgentEngine implements IAgentEngine {
     );
     if (hasTakenAction) return false;
 
-    // 5. Assistant has text but no real tool calls on an actionable request â†?planning-only
+    // 5. Assistant has text but no real tool calls on an actionable request ï¿½?planning-only
     return true;
   }
 
   /** Heuristic: does this user request require tools to fulfill? */
   private isActionableRequest(text: string): boolean {
     const lower = text.toLowerCase();
-    // If it looks like casual chat or general knowledge â†?NOT actionable
+    // If it looks like casual chat or general knowledge ï¿½?NOT actionable
     const casualIndicators = [
       "what is", "what are", "how does", "why is", "explain", "tell me about",
       "hello", "hi ", "thanks", "thank you", "goodbye", "bye",
@@ -1069,7 +1094,7 @@ export class AgentEngine implements IAgentEngine {
       "",
       "DO NOT:",
       "- Restate or summarize the plan",
-      "- Say 'I will do X' â€?just do X",
+      "- Say 'I will do X' ï¿½?just do X",
       "- Ask for confirmation on obvious next steps",
       "",
       "DO:",

@@ -14,6 +14,10 @@ export { type ISessionState as SessionState } from "../core/interfaces.js";
 export class MemorySessionStore implements ISessionStore {
   private data = new Map<SessionId, ISessionState>();
 
+  dispose(): void {
+    this.data.clear();
+  }
+
   async create(state: Omit<ISessionState, "createdAt" | "updatedAt">): Promise<ISessionState> {
     const now = new Date();
     const full: ISessionState = { ...state, createdAt: now, updatedAt: now };
@@ -49,6 +53,10 @@ export class SQLiteSessionStore implements ISessionStore {
   constructor(dbPath: string) {
     this.db = new DatabaseSync(dbPath);
     this.initSchema();
+  }
+
+  dispose(): void {
+    this.db.close();
   }
 
   private initSchema(): void {

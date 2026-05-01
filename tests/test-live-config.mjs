@@ -48,13 +48,9 @@ async function loadConfig() {
 }
 
 const cfg = await loadConfig();
-if (!cfg) {
-  throw new Error(
-    'No API provider configured. Set OPENROUTER_API_KEY environment variable ' +
-    'or configure providers in ~/.simpleclaw/simpleclaw.json'
-  );
-}
 
-export const API_KEY = cfg.apiKey;
-export const BASE_URL = cfg.baseURL;
-export const MODEL = cfg.model;
+// If no provider is configured, export placeholder values so that live tests
+// can detect the missing key and skip gracefully instead of crashing on import.
+export const API_KEY = cfg?.apiKey ?? '';
+export const BASE_URL = cfg?.baseURL ?? 'https://openrouter.ai/api/v1';
+export const MODEL = cfg?.model ?? 'tencent/hy3-preview:free';
