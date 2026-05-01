@@ -44,6 +44,7 @@ export const GatewayMethods = {
   TASKS_CREATE: "tasks.create",
   TASKS_GET: "tasks.get",
   TASKS_LIST: "tasks.list",
+  QUESTION_ANSWER: "question.answer",
 } as const;
 
 // ─── Method Params / Results ──────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { spawn } from "child_process";
 import { readFile, writeFile, mkdir, rename, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { resolve, isAbsolute, dirname, sep, join } from "path";
+import { tmpdir } from "os";
 import type { SandboxConfig } from "../core/types.js";
 import type { ISandbox, ILogger, IExecResult } from "../core/interfaces.js";
 
@@ -83,8 +84,12 @@ export class DockerSandbox implements ISandbox {
     });
   }
 
+  resolvePath(rawPath: string): string {
+    return this.guard.assertSafe(rawPath, this.workspace);
+  }
+
   async readFile(rawPath: string): Promise<string> {
-    const path = this.guard.assertSafe(rawPath, this.workspace);
+    const path = this.resolvePath(rawPath);
     return readFile(path, "utf-8");
   }
 
@@ -221,6 +226,114 @@ export class DockerSandbox implements ISandbox {
     };
   }
 
+  // ─── Background Process Management ────────────────────────────────────────────
+
+  private backgroundProcesses = new Map<
+    string,
+    {
+      child: ReturnType<typeof spawn>;
+      stdout: string;
+      stderr: string;
+      done: boolean;
+      exitCode?: number;
+      killed: boolean;
+    }
+  >();
+
+  async execBackground(command: string, options: { timeoutMs?: number } = {}): Promise<{ shellId: string }> {
+    if (this.config.backend === "none") {
+      throw new Error("Sandbox backend is 'none'; shell execution disabled");
+    }
+
+    const timeoutMs = options.timeoutMs ?? 600_000; // max 600s default
+    const shellId = `sh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    this.logger.info("Background shell start", { shellId, command, timeoutMs });
+
+    const { shell, args } = this.getShellConfig();
+    const child = spawn(shell, [...args, command], {
+      cwd: this.workspace,
+      env: { ...process.env, ...this.env },
+    });
+
+    this.backgroundProcesses.set(shellId, {
+      child,
+      stdout: "",
+      stderr: "",
+      done: false,
+      killed: false,
+    });
+
+    child.stdout?.on("data", (d: Buffer) => {
+      const proc = this.backgroundProcesses.get(shellId);
+      if (proc) proc.stdout += d.toString("utf-8");
+    });
+    child.stderr?.on("data", (d: Buffer) => {
+      const proc = this.backgroundProcesses.get(shellId);
+      if (proc) proc.stderr += d.toString("utf-8");
+    });
+
+    child.on("close", (code) => {
+      const proc = this.backgroundProcesses.get(shellId);
+      if (proc) {
+        proc.done = true;
+        proc.exitCode = code ?? 0;
+        // Auto-cleanup after 5 minutes to prevent memory leaks
+        setTimeout(() => {
+          this.backgroundProcesses.delete(shellId);
+        }, 300_000);
+      }
+    });
+
+    child.on("error", (err) => {
+      const proc = this.backgroundProcesses.get(shellId);
+      if (proc) {
+        proc.stderr += `\n[process error: ${err.message}]\n`;
+        proc.done = true;
+        proc.exitCode = -1;
+      }
+    });
+
+    // Auto-kill after timeout
+    if (timeoutMs > 0 && timeoutMs < Infinity) {
+      setTimeout(() => {
+        const proc = this.backgroundProcesses.get(shellId);
+        if (proc && !proc.done) {
+          this.killTree(proc.child);
+          proc.killed = true;
+        }
+      }, timeoutMs);
+    }
+
+    return { shellId };
+  }
+
+  async getBackgroundOutput(
+    shellId: string,
+    offset = 0,
+  ): Promise<{ stdout: string; stderr: string; done: boolean; exitCode?: number }> {
+    const proc = this.backgroundProcesses.get(shellId);
+    if (!proc) {
+      throw new Error(`Shell "${shellId}" not found`);
+    }
+    return {
+      stdout: this.redact(proc.stdout.slice(offset)),
+      stderr: this.redact(proc.stderr.slice(offset)),
+      done: proc.done,
+      exitCode: proc.exitCode,
+    };
+  }
+
+  async killBackground(shellId: string): Promise<boolean> {
+    const proc = this.backgroundProcesses.get(shellId);
+    if (!proc) return false;
+    if (proc.done) return true;
+    this.killTree(proc.child);
+    proc.killed = true;
+    proc.done = true;
+    return true;
+  }
+
   private async checkDocker(): Promise<boolean> {
     if (this._dockerChecked) return this._dockerAvailable;
     this._dockerChecked = true;
@@ -264,35 +377,23 @@ export class DockerSandbox implements ISandbox {
         env: { ...process.env, ...this.env },
       });
 
-      let stdout = "";
-      let stderr = "";
-      let stdoutTruncated = false;
-      let stderrTruncated = false;
+      let stdoutFull = "";
+      let stderrFull = "";
       const killTimer = setTimeout(() => {
         this.killTree(child);
       }, timeoutMs);
 
       child.stdout?.on("data", (d: Buffer) => {
-        if (!stdoutTruncated) {
-          stdout += d;
-          if (stdout.length > maxOutputBytes) {
-            stdout = stdout.slice(0, maxOutputBytes) + "\n... [stdout truncated]";
-            stdoutTruncated = true;
-          }
-        }
+        stdoutFull += d;
       });
       child.stderr?.on("data", (d: Buffer) => {
-        if (!stderrTruncated) {
-          stderr += d;
-          if (stderr.length > maxOutputBytes) {
-            stderr = stderr.slice(0, maxOutputBytes) + "\n... [stderr truncated]";
-            stderrTruncated = true;
-          }
-        }
+        stderrFull += d;
       });
 
       child.on("close", (code) => {
         clearTimeout(killTimer);
+        const stdout = this.spillOrTruncate(stdoutFull, maxOutputBytes, "stdout");
+        const stderr = this.spillOrTruncate(stderrFull, maxOutputBytes, "stderr");
         resolve({
           stdout: this.redact(stdout),
           stderr: this.redact(stderr),
@@ -304,6 +405,27 @@ export class DockerSandbox implements ISandbox {
         reject(err);
       });
     });
+  }
+
+  /**
+   * When output exceeds maxOutputBytes, write the full content to a temp file
+   * and return only the tail preview. This prevents huge outputs from blowing
+   * up the context window while preserving the data on disk (Pawwork2 pattern).
+   */
+  private spillOrTruncate(full: string, maxBytes: number, label: string): string {
+    if (full.length <= maxBytes) return full;
+
+    // Try to cut at a line boundary for clean preview
+    const previewBytes = Math.floor(maxBytes * 0.8);
+    let cutAt = full.lastIndexOf("\n", previewBytes);
+    if (cutAt <= 0) cutAt = previewBytes;
+    const tail = full.slice(cutAt);
+
+    const tmpPath = join(tmpdir(), `simpleclaw-${label}-${process.pid}-${Math.random().toString(36).slice(2, 8)}.txt`);
+    writeFile(tmpPath, full, "utf-8").catch(() => {});
+
+    return `[${label} exceeded ${maxBytes} chars; full output written to ${tmpPath}]\n` +
+      `--- last ${tail.length} chars ---\n${tail}`;
   }
 
   /**
@@ -337,35 +459,23 @@ export class DockerSandbox implements ISandbox {
       ];
       const child = spawn("docker", args);
 
-      let stdout = "";
-      let stderr = "";
-      let stdoutTruncated = false;
-      let stderrTruncated = false;
+      let stdoutFull = "";
+      let stderrFull = "";
       const killTimer = setTimeout(() => {
         this.killTree(child);
       }, timeoutMs);
 
       child.stdout?.on("data", (d: Buffer) => {
-        if (!stdoutTruncated) {
-          stdout += d;
-          if (stdout.length > maxOutputBytes) {
-            stdout = stdout.slice(0, maxOutputBytes) + "\n... [stdout truncated]";
-            stdoutTruncated = true;
-          }
-        }
+        stdoutFull += d;
       });
       child.stderr?.on("data", (d: Buffer) => {
-        if (!stderrTruncated) {
-          stderr += d;
-          if (stderr.length > maxOutputBytes) {
-            stderr = stderr.slice(0, maxOutputBytes) + "\n... [stderr truncated]";
-            stderrTruncated = true;
-          }
-        }
+        stderrFull += d;
       });
 
       child.on("close", (code) => {
         clearTimeout(killTimer);
+        const stdout = this.spillOrTruncate(stdoutFull, maxOutputBytes, "stdout");
+        const stderr = this.spillOrTruncate(stderrFull, maxOutputBytes, "stderr");
         resolve({
           stdout: this.redact(stdout),
           stderr: this.redact(stderr),

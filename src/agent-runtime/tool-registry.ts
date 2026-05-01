@@ -57,18 +57,29 @@ export class ToolRegistry implements IToolRegistry {
     return `${head}\n\n[...${removed} characters truncated by context manager...]\n\n${tail}`;
   }
 
-  async execute(call: ToolCall): Promise<ToolResult> {
+  async execute(call: ToolCall, ctx?: import("../core/interfaces.js").ToolContext): Promise<ToolResult> {
     const tool = this.tools.get(call.name);
     if (!tool) {
       return { callId: call.id, output: `Tool "${call.name}" not found`, isError: true };
     }
     try {
-      let output = await tool.execute(call.arguments);
+      let output = await tool.execute(call.arguments, ctx);
       output = this.truncateOutput(output, call.name);
       return { callId: call.id, output };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return { callId: call.id, output: msg, isError: true };
     }
+  }
+
+  /** Create a new registry containing only tools matching the predicate. */
+  filter(predicate: (tool: ITool) => boolean): ToolRegistry {
+    const filtered = new ToolRegistry();
+    for (const tool of this.tools.values()) {
+      if (predicate(tool)) {
+        filtered.register(tool);
+      }
+    }
+    return filtered;
   }
 }

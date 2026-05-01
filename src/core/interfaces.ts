@@ -39,11 +39,19 @@ export interface ISandbox {
   readFile(path: string): Promise<string>;
   /** @param expectedContent If provided, the write will atomically verify the file still contains this exact text before overwriting. Throws on mismatch. */
   writeFile(path: string, content: string, expectedContent?: string): Promise<void>;
+  /** Resolve a raw path to the sandbox's internal absolute path. */
+  resolvePath?(path: string): string;
   exec(command: string, options?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<IExecResult>;
   /** Execute a command in a true Linux bash environment (Docker on Windows, native bash on Linux/macOS). */
   execBash?(command: string, options?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<IExecResult>;
   /** Return the current platform name for tool description purposes. */
   getPlatformInfo?(): { platform: string; shell: string; availableCommands: string };
+  /** Start a background shell process and return a shell ID for later retrieval. */
+  execBackground?(command: string, options?: { timeoutMs?: number }): Promise<{ shellId: string }>;
+  /** Retrieve incremental output from a background shell process. */
+  getBackgroundOutput?(shellId: string, offset?: number): Promise<{ stdout: string; stderr: string; done: boolean; exitCode?: number }>;
+  /** Terminate a background shell process. */
+  killBackground?(shellId: string): Promise<boolean>;
 }
 
 // ─── LLM ──────────────────────────────────────────────────────────────────────
@@ -128,11 +136,16 @@ export interface IApprovalGate {
 
 // ─── Tool Registry ────────────────────────────────────────────────────────────
 
+export interface ToolContext {
+  sessionId?: string;
+  depth?: number;
+}
+
 export interface ITool {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
-  execute(args: Record<string, unknown>): Promise<string>;
+  execute(args: Record<string, unknown>, ctx?: ToolContext): Promise<string>;
 }
 
 export interface IToolRegistry {
@@ -140,7 +153,8 @@ export interface IToolRegistry {
   get(name: string): ITool | undefined;
   list(): ITool[];
   schema(): IToolSchema[];
-  execute(call: ToolCall): Promise<ToolResult>;
+  execute(call: ToolCall, ctx?: ToolContext): Promise<ToolResult>;
+  filter(predicate: (tool: ITool) => boolean): IToolRegistry;
 }
 
 // ─── Context Engine (pluggable context management) ────────────────────────────
@@ -204,7 +218,14 @@ export type IChatEvent =
   | { type: "tool_result"; result: ToolResult }
   | { type: "text"; text: string }
   | { type: "error"; code: string; message: string }
-  | { type: "done" };
+  | { type: "done" }
+  | { type: "question"; questionId: string; questions: AskUserQuestion[] };
+
+export interface AskUserQuestion {
+  question: string;
+  options: { label: string; description?: string }[];
+  multiSelect: boolean;
+}
 
 // ─── Channel SDK ──────────────────────────────────────────────────────────────
 
@@ -283,17 +304,30 @@ export interface SpawnOptions {
   systemPrompt?: string;
   /** Optional: pass a previous sub-agent session ID to resume instead of creating a new one */
   sessionId?: SessionId;
+  /** Optional: parent session ID for hierarchical tracking */
+  parentSessionId?: SessionId;
+  /** Optional: timeout in milliseconds for the sub-agent execution */
+  timeoutMs?: number;
+  /** Optional: maximum number of tool call iterations */
+  maxIterations?: number;
+  /** Optional: include full event stream (thinking/tool_call/tool_result) in result. Default false for token efficiency. */
+  verbose?: boolean;
+  /** Optional: file paths to read and prepend to the task as context */
+  contextFiles?: string[];
+  /** Optional: current spawn depth (0 = root agent). Used for recursion guarding. */
+  depth?: number;
 }
 
 export interface SpawnResult {
   agentId: string;
   sessionId: string;
   result: string;
-  events: { type: string; text?: string; code?: string; message?: string }[];
+  events: IChatEvent[];
 }
 
 export interface IAgentPool {
   spawn(options: SpawnOptions): Promise<SpawnResult>;
+  spawnMultiple(options: { description?: string; tasks: Array<Omit<SpawnOptions, "parentSessionId">>; maxConcurrency?: number }): Promise<{ results: SpawnResult[]; mergedSummary: string }>;
 }
 
 // ─── Notification Bus ─────────────────────────────────────────────────────────
@@ -326,10 +360,16 @@ export interface IUserMemory {
 // ─── Agent Engine ─────────────────────────────────────────────────────────────
 
 export interface IAgentEngine {
-  chat(sessionId: SessionId, message: string): AsyncGenerator<IChatEvent>;
+  chat(sessionId: SessionId, message: string, signal?: AbortSignal): AsyncGenerator<IChatEvent>;
+  answerQuestion?(questionId: string, answer: string): void;
   dispose?(): Promise<void> | void;
 }
 
 export interface IAgentEngineFactory {
-  create(config: AgentConfig, llm: ILLMClient, tools: IToolRegistry): IAgentEngine;
+  create(
+    config: AgentConfig,
+    llm: ILLMClient,
+    tools: IToolRegistry,
+    overrides?: { approval?: IApprovalGate; logger?: ILogger },
+  ): IAgentEngine;
 }

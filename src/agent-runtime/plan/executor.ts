@@ -128,7 +128,7 @@ export class DAGExecutor {
           arguments: resolvedArgs,
         };
 
-        const resultPromise = tools.execute(call);
+        const resultPromise = tools.execute(call, sessionId ? { sessionId } : undefined);
         const result = timeoutMs
           ? await this.withTimeout(resultPromise, timeoutMs)
           : await resultPromise;

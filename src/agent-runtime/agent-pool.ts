@@ -6,7 +6,11 @@
  *   - Parallel: multiple sub-agents concurrently (spawnMultiple)
  *   - Evaluator-Optimizer: generate → evaluate → iterate (composed via spawn)
  *
- * Inspired by OpenClaw's agent tool + Anthropic's multi-agent research system.
+ * Design influences:
+ *   - Claude Code: single-threaded master loop, result compression, checkpoint system
+ *   - OpenClaw: depth limits, timeout, attachments, ACP dispatch
+ *   - Hermes Agent: depth gating (leaf vs orchestrator), interrupt propagation,
+ *     configurable concurrency/iterations, context file injection
  */
 
 import type {
@@ -17,24 +21,21 @@ import type {
   IChatEvent,
   ILogger,
   ISessionStore,
+  IApprovalGate,
 } from "../core/interfaces.js";
 import type { AgentConfig, SessionId } from "../core/types.js";
 import { ToolRegistry } from "./tool-registry.js";
 import type { ModelRouter } from "./llm.js";
+import { ScopedApprovalGate } from "./approval-scoped.js";
+import { ScopedLogger } from "./logger-scoped.js";
+import { CheckpointStore } from "./checkpoint-store.js";
 
 export interface SpawnMultipleOptions {
   /** Short description of the overall dispatch */
   description?: string;
   /** Array of sub-tasks to run in parallel */
-  tasks: Array<{
-    description?: string;
-    task: string;
-    role?: string;
-    model?: { provider: string; model: string };
-    tools?: string[];
-    systemPrompt?: string;
-  }>;
-  /** Max concurrent sub-agents (default: 4) */
+  tasks: Array<Omit<SpawnOptions, "parentSessionId">>;
+  /** Max concurrent sub-agents (default: from config or 4) */
   maxConcurrency?: number;
 }
 
@@ -43,7 +44,7 @@ export interface SpawnMultipleResult {
   mergedSummary: string;
 }
 
-/** Pre-defined role → allowed tool names. Prevents recursive spawn. */
+/** Pre-defined role → allowed tool names. */
 const ROLE_TOOLS: Record<string, string[]> = {
   explore: ["read", "grep", "ls", "bash", "think"],
   coder:   ["read", "edit", "grep", "ls", "bash", "think"],
@@ -53,11 +54,9 @@ const ROLE_TOOLS: Record<string, string[]> = {
 /** Recursion guard: tools that a sub-agent must NEVER have. */
 const FORBIDDEN_SUB_TOOLS = new Set(["spawn", "spawn_multiple"]);
 
-/** Max output length for a single sub-agent result before truncation */
-const SUBAGENT_RESULT_MAX_CHARS = 8000;
-
 export class AgentPool implements IAgentPool {
   private counter = 0;
+  private checkpoints: CheckpointStore;
 
   constructor(
     private baseConfig: AgentConfig,
@@ -66,14 +65,21 @@ export class AgentPool implements IAgentPool {
     private parentTools: ToolRegistry,
     private logger: ILogger,
     private engineFactory: IAgentEngineFactory,
-  ) {}
+  ) {
+    this.checkpoints = new CheckpointStore(baseConfig.workspace);
+  }
+
+  private get subagentConfig() {
+    return this.baseConfig.subagent ?? {};
+  }
 
   /** Spawn a single sub-agent (Sequential workflow). */
   async spawn(options: SpawnOptions): Promise<SpawnResult> {
+    const maxChars = this.subagentConfig.maxResultChars ?? 8000;
     const result = await this.runSubAgent(options);
     return {
       ...result,
-      result: this.truncateResult(result.result, SUBAGENT_RESULT_MAX_CHARS),
+      result: this.truncateResult(result.result, maxChars),
     };
   }
 
@@ -83,7 +89,7 @@ export class AgentPool implements IAgentPool {
    * Results are collected and merged into a single summary.
    */
   async spawnMultiple(options: SpawnMultipleOptions): Promise<SpawnMultipleResult> {
-    const maxConcurrency = options.maxConcurrency ?? 4;
+    const maxConcurrency = options.maxConcurrency ?? this.subagentConfig.maxConcurrency ?? 4;
     const description = options.description ?? "parallel dispatch";
 
     this.logger.info("Spawning multiple sub-agents", {
@@ -106,14 +112,19 @@ export class AgentPool implements IAgentPool {
           model: task.model,
           tools: task.tools,
           systemPrompt: task.systemPrompt,
-        }).then(r => ({
+          verbose: task.verbose,
+          contextFiles: task.contextFiles,
+          depth: task.depth,
+          timeoutMs: task.timeoutMs,
+          maxIterations: task.maxIterations,
+        }).then((r) => ({
           ...r,
-          result: this.truncateResult(r.result, SUBAGENT_RESULT_MAX_CHARS),
-        })).catch(err => {
+          result: this.truncateResult(r.result, this.subagentConfig.maxResultChars ?? 8000),
+        })).catch((err) => {
           const msg = err instanceof Error ? err.message : String(err);
           this.logger.error("Sub-agent in parallel batch failed", { error: msg, task: task.description });
           return this.createErrorResult(msg, task.description);
-        })
+        }),
       );
 
       const batchResults = await Promise.all(batchPromises);
@@ -125,7 +136,7 @@ export class AgentPool implements IAgentPool {
     this.logger.info("Parallel sub-agents completed", {
       description,
       total: results.length,
-      success: results.filter(r => !r.result.includes("[error]")).length,
+      success: results.filter((r) => !r.result.includes("[error]")).length,
     });
 
     return { results, mergedSummary };
@@ -136,9 +147,11 @@ export class AgentPool implements IAgentPool {
   private async runSubAgent(options: SpawnOptions): Promise<SpawnResult> {
     const id = ++this.counter;
     const agentId = `sub-${Date.now()}-${id}`;
+    const depth = options.depth ?? 0;
+    const maxSpawnDepth = this.subagentConfig.maxSpawnDepth ?? 1;
 
     // Resolve tool list (role > explicit > parent default, then strip forbidden)
-    const toolNames = this.resolveToolSet(options);
+    const toolNames = this.resolveToolSet(options, depth, maxSpawnDepth);
 
     // Build sub-agent config
     const subConfig: AgentConfig = {
@@ -148,32 +161,29 @@ export class AgentPool implements IAgentPool {
       model: options.model ?? this.baseConfig.model,
       systemPrompt: options.systemPrompt ?? this.baseConfig.systemPrompt,
       tools: toolNames,
+      maxIterations: options.maxIterations ?? this.baseConfig.maxIterations,
     };
 
-    this.logger.info("Running sub-agent", {
+    this.logger.info("Preparing sub-agent", {
       agentId,
       model: `${subConfig.model.provider}/${subConfig.model.model}`,
       role: options.role ?? "custom",
       tools: toolNames,
+      depth,
+      maxSpawnDepth,
     });
 
     // Resolve LLM
     const llm = this.router.resolve(subConfig.model);
 
     // Build tool registry (subset of parent, recursion-guarded)
-    const subTools = new ToolRegistry();
-    for (const name of toolNames) {
-      if (FORBIDDEN_SUB_TOOLS.has(name)) {
-        this.logger.warn(`Tool "${name}" is forbidden for sub-agents, skipping`);
-        continue;
-      }
-      const tool = this.parentTools.get(name);
-      if (tool) {
-        subTools.register(tool);
-      } else {
-        this.logger.warn(`Tool "${name}" not found in parent registry, skipping`);
-      }
+    const missingTools = toolNames.filter((name) => !this.parentTools.get(name));
+    if (missingTools.length > 0) {
+      this.logger.warn("Tools not found in parent registry, skipping", { missing: missingTools });
     }
+    const subTools = this.parentTools.filter(
+      (t) => !FORBIDDEN_SUB_TOOLS.has(t.name) && toolNames.includes(t.name),
+    );
 
     // Create or resume session
     let sessionId: SessionId;
@@ -197,54 +207,120 @@ export class AgentPool implements IAgentPool {
       await this.store.create({
         sessionId,
         agentId: subConfig.id,
-        parentSessionId: undefined,
+        parentSessionId: options.parentSessionId ?? undefined,
         turns: [],
         tokenCount: 0,
       });
     }
 
-    // Create sub-agent engine
-    const engine = this.engineFactory.create(subConfig, llm, subTools);
+    // Scoped resources for observability and isolation
+    const subLogger = new ScopedLogger(this.logger, agentId, sessionId);
+    const subApproval = new ScopedApprovalGate(
+      { request: async () => "approved", isRequired: () => false, listPending: () => [] } as IApprovalGate,
+      agentId,
+      sessionId,
+      subLogger,
+    );
 
-    // Execute task
+    // Build task with optional context file injection
+    const task = await this.buildTask(options.task, options.contextFiles);
+
+    // Create sub-agent engine with scoped logger
+    const engine = this.engineFactory.create(subConfig, llm, subTools, {
+      logger: subLogger,
+      approval: subApproval,
+    });
+
+    // AbortController for cancellation support
+    const abortController = new AbortController();
+
+    // Execute task with optional timeout
     const events: IChatEvent[] = [];
+    const timeoutMs = options.timeoutMs ?? this.subagentConfig.timeoutMs ?? 300_000;
+
     try {
-      for await (const event of engine.chat(sessionId, options.task)) {
-        events.push(event);
-      }
+      const chatPromise = (async () => {
+        for await (const event of engine.chat(sessionId, task, abortController.signal)) {
+          events.push(event);
+          await this.checkpoints.append(sessionId, event);
+        }
+      })();
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const timer = setTimeout(() => {
+          abortController.abort(`Sub-agent timed out after ${timeoutMs}ms`);
+          reject(new Error(`Sub-agent timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        abortController.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+      });
+
+      await Promise.race([chatPromise, timeoutPromise]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      this.logger.error("Sub-agent failed", { agentId, error: msg });
+      subLogger.error("Sub-agent failed", { error: msg });
       return {
         agentId,
         sessionId,
         result: this.formatErrorResult(sessionId, msg),
-        events: events.map(ev => ({ type: ev.type, text: extractEventText(ev) })),
+        events,
       };
+    } finally {
+      abortController.abort(); // ensure any lingering async work is signalled
+      await engine.dispose?.();
     }
 
-    this.logger.info("Sub-agent completed", { agentId, sessionId, eventCount: events.length });
+    subLogger.info("Sub-agent completed", { eventCount: events.length });
 
     return {
       agentId,
       sessionId,
-      result: this.formatResult(sessionId, events),
-      events: events.map(ev => ({ type: ev.type, text: extractEventText(ev) })),
+      result: this.formatResult(sessionId, events, options.verbose ?? false),
+      events,
     };
+  }
+
+  // ─── Task builder with context file injection ───────────────────────────────
+
+  private async buildTask(baseTask: string, contextFiles?: string[]): Promise<string> {
+    if (!contextFiles || contextFiles.length === 0) return baseTask;
+
+    const parts: string[] = [];
+    for (const filePath of contextFiles) {
+      try {
+        const tool = this.parentTools.get("read");
+        if (!tool) {
+          parts.push(`--- Context file: ${filePath} ---\n[Error: read tool not available]\n`);
+          continue;
+        }
+        const content = await tool.execute({ path: filePath });
+        parts.push(`--- Context from ${filePath} ---\n${content}\n`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        parts.push(`--- Context file: ${filePath} ---\n[Error reading file: ${msg}]\n`);
+      }
+    }
+    parts.push(`--- Task ---\n${baseTask}`);
+    return parts.join("\n");
   }
 
   // ─── Tool set resolution ────────────────────────────────────────────────────
 
-  private resolveToolSet(options: SpawnOptions): string[] {
+  private resolveToolSet(options: SpawnOptions, depth: number, maxSpawnDepth: number): string[] {
     const base = options.role
       ? (ROLE_TOOLS[options.role] ?? this.baseConfig.tools)
       : (options.tools ?? this.baseConfig.tools);
-    return base.filter(t => !FORBIDDEN_SUB_TOOLS.has(t));
+
+    // Depth gating: at max depth, strip spawn tools to prevent recursion
+    const allowSpawn = depth < maxSpawnDepth;
+    return base.filter((t) => {
+      if (FORBIDDEN_SUB_TOOLS.has(t)) return allowSpawn;
+      return true;
+    });
   }
 
   // ─── Result formatting ──────────────────────────────────────────────────────
 
-  private formatResult(sessionId: SessionId, events: IChatEvent[]): string {
+  private formatResult(sessionId: SessionId, events: IChatEvent[], verbose: boolean): string {
     const lines: string[] = [
       `subagent_session_id: ${sessionId} (pass this to resume)`,
       "",
@@ -254,13 +330,17 @@ export class AgentPool implements IAgentPool {
     for (const ev of events) {
       switch (ev.type) {
         case "thinking":
-          lines.push(`[thinking] ${ev.text}`);
+          if (verbose) lines.push(`[thinking] ${ev.text}`);
           break;
         case "tool_call":
-          lines.push(`[tool] ${ev.call.name}`);
+          if (verbose) lines.push(`[tool] ${ev.call.name}`);
           break;
         case "tool_result":
-          lines.push(`[result] ${String(ev.result.output).slice(0, 300)}${String(ev.result.output).length > 300 ? "..." : ""}`);
+          if (verbose) {
+            lines.push(
+              `[result] ${String(ev.result.output).slice(0, 300)}${String(ev.result.output).length > 300 ? "..." : ""}`,
+            );
+          }
           break;
         case "text":
           lines.push(ev.text);
@@ -298,14 +378,22 @@ export class AgentPool implements IAgentPool {
         `[error] ${description ? `[${description}] ` : ""}${error}`,
         "</subagent_result>",
       ].join("\n"),
-      events: [{ type: "error", code: "SPAWN_FAILED", message: error }],
+      events: [{ type: "error", code: "SPAWN_FAILED", message: error } as IChatEvent],
     };
   }
 
   private truncateResult(result: string, maxChars: number): string {
     if (result.length <= maxChars) return result;
-    const truncated = result.slice(0, maxChars);
-    const note = `\n\n[...output truncated: ${result.length - maxChars} characters removed to prevent context overflow...]`;
+    // XML-aware truncation: don't slice inside the closing tag
+    const closeTag = "</subagent_result>";
+    const tagLen = closeTag.length;
+    let cutAt = maxChars;
+    // Ensure we leave room for the close tag + truncation notice
+    if (cutAt + tagLen + 100 > result.length) {
+      cutAt = Math.max(1, result.length - tagLen - 100);
+    }
+    const truncated = result.slice(0, cutAt);
+    const note = `\n\n[...output truncated: ${result.length - cutAt} characters removed to prevent context overflow...]\n${closeTag}`;
     return truncated + note;
   }
 
@@ -314,8 +402,8 @@ export class AgentPool implements IAgentPool {
     const lines: string[] = [
       `=== PARALLEL SUB-AGENT RESULTS: ${description} ===`,
       `Total dispatched: ${results.length}`,
-      `Successful: ${results.filter(r => !r.result.includes("[error]")).length}`,
-      `Failed: ${results.filter(r => r.result.includes("[error]")).length}`,
+      `Successful: ${results.filter((r) => !r.result.includes("[error]")).length}`,
+      `Failed: ${results.filter((r) => r.result.includes("[error]")).length}`,
       "",
       "<parallel_results>",
     ];
@@ -326,10 +414,11 @@ export class AgentPool implements IAgentPool {
       // Extract the text content from the XML result, skip metadata lines
       const content = r.result
         .split("\n")
-        .filter(line =>
-          !line.startsWith("subagent_session_id:") &&
-          !line.startsWith("<subagent_result>") &&
-          !line.startsWith("</subagent_result>")
+        .filter(
+          (line) =>
+            !line.startsWith("subagent_session_id:") &&
+            !line.startsWith("<subagent_result>") &&
+            !line.startsWith("</subagent_result>"),
         )
         .join("\n")
         .trim();
@@ -339,18 +428,4 @@ export class AgentPool implements IAgentPool {
     lines.push("\n</parallel_results>");
     return lines.join("\n");
   }
-}
-
-/** Safely extract display text from a chat event without `as any`. */
-function extractEventText(ev: IChatEvent): string | undefined {
-  if (ev.type === "text" || ev.type === "thinking") {
-    return ev.text;
-  }
-  if (ev.type === "error") {
-    return ev.message;
-  }
-  if (ev.type === "tool_result") {
-    return ev.result.output;
-  }
-  return undefined;
 }

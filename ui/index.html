@@ -2,45 +2,172 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SimpleClaw</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SimpleClaw — Agent Console</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
-  <header>
-    <div class="left">
-      <h1>🦞 SimpleClaw</h1>
-      <span id="connBadge" class="badge disconnected">Offline</span>
-      <span id="sessBadge" class="badge session" style="display:none"></span>
-    </div>
-    <div class="right">
-      <input type="text" id="wsUrl" value="ws://127.0.0.1:18789" placeholder="ws://host:port" style="width:160px">
-      <input type="text" id="tokenInput" placeholder="Token" style="width:100px">
-      <button id="btnConnect">Connect</button>
-      <button id="btnDisconnect" class="secondary" disabled>Disconnect</button>
-    </div>
-  </header>
+  <div class="overlay" id="overlay"></div>
 
-  <div class="chat-container">
-    <div id="chatLog"></div>
-
-    <div class="input-area">
-      <textarea id="messageInput" placeholder="Connect to gateway to start..." disabled></textarea>
-      <button id="btnSend" disabled>Send</button>
+  <!-- Left Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <span class="brand-icon">🦞</span>
+        <span class="brand-text">SimpleClaw</span>
+      </div>
+      <button class="icon-btn" id="btnNewSession" title="New Session">＋</button>
     </div>
-  </div>
 
-  <div class="events-panel" id="eventsPanel">
-    <div class="events-header" id="eventsHeader">
-      <h3>▼ Raw Events</h3>
-      <div class="actions">
-        <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
-        <button class="secondary" id="btnClearEvents">Clear</button>
+    <div class="sidebar-body">
+      <div class="section-title">
+        <span>Sessions</span>
+        <span class="count" id="sessionCount">0</span>
+      </div>
+      <div class="session-list" id="sessionList">
+        <div class="empty-state">No sessions yet</div>
       </div>
     </div>
-    <pre id="rawEvents"></pre>
+
+    <div class="sidebar-footer">
+      <div class="conn-status" id="connStatus">
+        <span class="dot offline"></span>
+        <span class="label">Offline</span>
+      </div>
+      <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main" id="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn mobile-only" id="btnToggleSidebar">☰</button>
+        <div class="session-info" id="sessionInfo">
+          <div class="session-name" id="sessionName">Not connected</div>
+          <div class="session-meta" id="sessionMeta">—</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn" id="btnToggleTasks" title="Tasks">📋</button>
+        <button class="icon-btn" id="btnToggleRightPanel" title="Details">ℹ</button>
+      </div>
+    </header>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🦞</div>
+        <h2>SimpleClaw Agent Console</h2>
+        <p>Connect to a gateway and start a session to interact with your AI agent.</p>
+        <div class="welcome-actions">
+          <button class="btn-primary" id="btnConnectWelcome">Connect Gateway</button>
+          <button class="btn-secondary" id="btnNewSessionWelcome" disabled>New Session</button>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="scroll-anchor"></div>
+    </div>
+
+    <div class="composer" id="composer">
+      <div class="composer-bar">
+        <span class="agent-badge" id="agentBadge">default</span>
+        <span class="token-hint" id="tokenHint"></span>
+      </div>
+      <div class="composer-input-wrap">
+        <textarea id="messageInput" placeholder="Connect to gateway to start..." disabled></textarea>
+        <button class="send-btn" id="btnSend" disabled>➤</button>
+      </div>
+      <div class="composer-hint">Enter to send · Shift+Enter for new line · Markdown supported</div>
+    </div>
+  </main>
+
+  <!-- Right Panel -->
+  <aside class="right-panel" id="rightPanel">
+    <div class="panel-tabs">
+      <button class="tab-btn active" data-tab="tasks">Tasks</button>
+      <button class="tab-btn" data-tab="details">Details</button>
+    </div>
+    <div class="panel-body">
+      <div class="tab-pane active" id="tasksPane">
+        <div class="pane-header">
+          <h4>Background Tasks</h4>
+          <button class="icon-btn small" id="btnRefreshTasks" title="Refresh">↻</button>
+        </div>
+        <div class="task-list" id="taskList">
+          <div class="empty-state">No tasks</div>
+        </div>
+      </div>
+      <div class="tab-pane" id="detailsPane">
+        <div class="pane-header"><h4>Session Details</h4></div>
+        <div class="details-body" id="detailsBody">
+          <div class="empty-state">Select a session to view details</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-backdrop" id="settingsBackdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3>Gateway Settings</h3>
+        <button class="icon-btn" id="btnCloseSettings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>WebSocket URL</label>
+          <input type="text" id="wsUrl" value="ws://127.0.0.1:18789" placeholder="ws://host:port">
+        </div>
+        <div class="field">
+          <label>Auth Token</label>
+          <input type="password" id="tokenInput" placeholder="Optional token">
+        </div>
+        <div class="field">
+          <label>Agent ID</label>
+          <input type="text" id="agentIdInput" value="default">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnDisconnect">Disconnect</button>
+        <button class="btn-primary" id="btnSaveConnect">Connect</button>
+      </div>
+    </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <!-- Task Detail Modal -->
+  <div class="modal" id="taskModal">
+    <div class="modal-backdrop" id="taskBackdrop"></div>
+    <div class="modal-sheet wide">
+      <div class="modal-header">
+        <h3>Task Detail</h3>
+        <button class="icon-btn" id="btnCloseTask">✕</button>
+      </div>
+      <div class="modal-body" id="taskDetailBody">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Question Modal -->
+  <div class="modal" id="questionModal">
+    <div class="modal-backdrop" id="questionBackdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3>❓ Question from Agent</h3>
+      </div>
+      <div class="modal-body" id="questionBody">
+        <div class="empty-state">Loading…</div>
+      </div>
+      <div class="modal-footer" id="questionFooter" style="display:none">
+        <button class="btn-primary" id="btnSubmitAnswer">Submit Answer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

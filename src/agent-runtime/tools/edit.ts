@@ -1,10 +1,11 @@
 /**
  * SimpleClaw — Edit Tool
  * Multi-strategy search-and-replace with read-before-write guard.
- * Strategies (tried in order):
- *   1. Exact match
- *   2. Line-trimmed match (ignores leading/trailing whitespace per line)
- *   3. Block-anchor match (first/last line anchors + middle fuzzy)
+ *
+ * Mature patterns from OpenClaw / Pawwork2:
+ * - 5 replacer strategies (exact, line-trimmed, block-anchor, indent-flexible, escape-normalized)
+ * - Mismatch hint: returns current file contents on failure so the model can retry
+ * - BOM and line-ending preservation
  */
 
 import type { ISandbox, ITool } from "../../core/interfaces.js";
@@ -58,7 +59,6 @@ const blockAnchorReplacer: Replacer = (content, oldStr) => {
     const endIdx = i + oldLines.length - 1;
     if (contentLines[endIdx] !== lastLine) continue;
 
-    // Middle lines: allow small differences
     let middleOk = true;
     for (let m = 1; m < oldLines.length - 1; m++) {
       if (contentLines[i + m] !== oldLines[m]) {
@@ -77,15 +77,75 @@ const blockAnchorReplacer: Replacer = (content, oldStr) => {
 
   if (candidates.length === 0) return null;
   if (candidates.length > 1) {
-    // Return a sentinel to signal ambiguity
     throw new AmbiguousMatchError(`Found ${candidates.length} matches for old_string. Provide more surrounding context to disambiguate.`);
   }
   return candidates[0];
 };
 
+/** Remove common leading indentation before comparing (Pawwork2 pattern) */
+const indentFlexibleReplacer: Replacer = (content, oldStr) => {
+  const getIndent = (s: string) => {
+    const m = s.match(/^(\s+)/);
+    return m ? m[1].length : 0;
+  };
+  const oldLines = oldStr.split("\n");
+  const contentLines = content.split("\n");
+  if (oldLines.length === 0) return null;
+
+  const oldIndent = getIndent(oldLines[0]);
+  const strippedOld = oldLines.map((l) => l.slice(oldIndent));
+
+  for (let i = 0; i <= contentLines.length - oldLines.length; i++) {
+    const candIndent = getIndent(contentLines[i]);
+    const stripped = contentLines.slice(i, i + oldLines.length).map((l) => l.slice(candIndent));
+    if (stripped.join("\n") === strippedOld.join("\n")) {
+      const before = contentLines.slice(0, i).join("\n");
+      const after = contentLines.slice(i + oldLines.length).join("\n");
+      const prefix = before ? before + "\n" : "";
+      const suffix = after ? "\n" + after : "";
+      return { index: prefix.length, before: prefix, after: suffix };
+    }
+  }
+  return null;
+};
+
+/** Normalize escaped sequences in both sides before matching */
+const escapeNormalizedReplacer: Replacer = (content, oldStr) => {
+  const normalize = (s: string) =>
+    s
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\'/g, "'")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  const normOld = normalize(oldStr);
+  const idx = content.indexOf(normOld);
+  if (idx === -1) return null;
+  return { index: idx, before: content.slice(0, idx), after: content.slice(idx + normOld.length) };
+};
+
 class AmbiguousMatchError extends Error {}
 
-const REPLACERS: Replacer[] = [exactReplacer, lineTrimmedReplacer, blockAnchorReplacer];
+const REPLACERS: Replacer[] = [
+  exactReplacer,
+  lineTrimmedReplacer,
+  blockAnchorReplacer,
+  indentFlexibleReplacer,
+  escapeNormalizedReplacer,
+];
+
+// ─── BOM / Line-ending helpers ────────────────────────────────────────────────
+
+function detectLineEnding(content: string): "\r\n" | "\n" {
+  return content.includes("\r\n") ? "\r\n" : "\n";
+}
+
+function normalizeToFile(content: string, fileEnding: "\r\n" | "\n"): string {
+  if (fileEnding === "\r\n") {
+    return content.replace(/\n/g, "\r\n").replace(/\r\r/g, "\r");
+  }
+  return content.replace(/\r\n/g, "\n");
+}
 
 // ─── Tool ─────────────────────────────────────────────────────────────────────
 
@@ -127,12 +187,13 @@ export function createEditTool(
       }
 
       const content = await sandbox.readFile(path);
+      const lineEnding = detectLineEnding(content);
 
       let match: Match | null = null;
       let strategyName = "";
 
       for (const [i, replacer] of REPLACERS.entries()) {
-        const names = ["exact", "line-trimmed", "block-anchor"];
+        const names = ["exact", "line-trimmed", "block-anchor", "indent-flexible", "escape-normalized"];
         try {
           const result = replacer(content, oldStr, newStr);
           if (result) {
@@ -147,23 +208,28 @@ export function createEditTool(
       }
 
       if (!match) {
+        // Mismatch hint: show current file contents so the model can retry (OpenClaw pattern)
+        const hintLimit = 2000;
+        const hint = content.length <= hintLimit
+          ? content
+          : content.slice(0, hintLimit) + "\n... (truncated)";
         throw new Error(
           `old_string not found in file: ${path}\n` +
           `Tips: (1) Make sure old_string is copied exactly from the file. ` +
           `(2) Include more surrounding lines for uniqueness. ` +
-          `(3) Check line endings (CRLF vs LF).`
+          `(3) Check line endings (CRLF vs LF).\n\n` +
+          `Current file contents:\n${hint}`
         );
       }
 
-      const replaced = match.before + newStr + match.after;
+      const normalizedNew = normalizeToFile(newStr, lineEnding);
+      const replaced = match.before + normalizedNew + match.after;
 
-      // Atomic write with optimistic concurrency check:
-      // the sandbox verifies the file still contains `content` inside the write lock.
       await sandbox.writeFile(path, replaced, content);
 
       return `Edited ${path} (${strategyName} match).\n` +
         `--- old (${oldStr.split("\n").length} lines) ---\n${oldStr.slice(0, 200)}${oldStr.length > 200 ? "..." : ""}\n` +
-        `--- new (${newStr.split("\n").length} lines) ---\n${newStr.slice(0, 200)}${newStr.length > 200 ? "..." : ""}`;
+        `--- new (${normalizedNew.split("\n").length} lines) ---\n${normalizedNew.slice(0, 200)}${normalizedNew.length > 200 ? "..." : ""}`;
     },
   };
 }

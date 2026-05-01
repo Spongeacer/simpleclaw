@@ -44,6 +44,13 @@ export const AgentConfigSchema = z.object({
   }).optional(),
   maxIterations: z.number().positive().optional(),
   planMode: z.enum(["auto", "off", "always"]).default("auto"),
+  subagent: z.object({
+    maxResultChars: z.number().positive().optional(),
+    maxConcurrency: z.number().positive().optional(),
+    timeoutMs: z.number().positive().optional(),
+    mode: z.enum(["full", "minimal"]).optional(),
+    maxSpawnDepth: z.number().positive().optional(),
+  }).optional(),
 });
 
 export const AuthConfigSchema = z.discriminatedUnion("type", [
@@ -131,16 +138,22 @@ export const DEFAULT_CONFIG: SimpleClawConfig = {
     {
       id: "default",
       name: "SimpleClaw",
-      model: { provider: "moonshot", model: "moonshot-v1-8k" },
+      model: { provider: "mimo", model: "mimo" },
       tools: ["read", "edit", "shell", "web_fetch"],
       approvalPolicy: "dangerous",
       workspace: "~/.simpleclaw/workspace",
       planMode: "auto",
     },
   ],
-  providers: {},
+  providers: {
+    mimo: {
+      type: "openai-compatible",
+      apiKey: "{{mimo}}",
+      baseURL: "https://token-plan-cn.xiaomimimo.com/v1",
+    },
+  },
   models: {
-    default: { provider: "mock", model: "mock" },
+    default: { provider: "mimo", model: "mimo" },
   },
   plugins: [],
   mcpServers: [],

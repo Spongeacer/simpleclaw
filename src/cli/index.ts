@@ -36,17 +36,22 @@ function expandConfigPaths(config: SimpleClawConfig): SimpleClawConfig {
 }
 
 function loadConfig(): { config: SimpleClawConfig; secrets: ReturnType<typeof loadSecrets> } {
+  const configDir = resolve(CONFIG_PATH, "..");
+  // Always load secrets so default configs can resolve {{provider}} references
+  const secrets = loadSecrets(configDir);
+
   if (!existsSync(CONFIG_PATH)) {
     logger.info("No config found, using defaults", { path: CONFIG_PATH });
-    return { config: expandConfigPaths(DEFAULT_CONFIG), secrets: {} };
+    const config = expandConfigPaths(DEFAULT_CONFIG);
+    const providerKeys = getProviderKeys(secrets);
+    injectProviderKeys(config.providers, providerKeys);
+    return { config, secrets };
   }
   try {
     const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
     const config = expandConfigPaths(SimpleClawConfigSchema.parse(raw));
 
-    // Load secrets.json (or keys.json) and resolve references like "{{moonshot}}"
-    const configDir = resolve(CONFIG_PATH, "..");
-    const secrets = loadSecrets(configDir);
+    // Resolve references like "{{mimo}}" from secrets.json
     const providerKeys = getProviderKeys(secrets);
     injectProviderKeys(config.providers, providerKeys);
 
@@ -78,7 +83,7 @@ async function main() {
       writeFileSync(secretsPath, JSON.stringify({
         "_comment": "NEVER commit this file. Store API keys and service credentials here.",
         "providers": {
-          "moonshot": "your-moonshot-key",
+          "mimo": "your-mimo-api-key",
           "openrouter": "your-openrouter-key"
         },
         "env": {
@@ -100,17 +105,20 @@ async function main() {
     console.log("- providers: API keys for AI models (referenced as {{name}} in simpleclaw.json)");
     console.log("- env:       Service credentials injected into bash/exec tools as environment variables");
     console.log("");
-    console.log("Example provider config with key reference:");
+    console.log("Default provider: MiMo (Xiaomi) — OpenAI-compatible");
+    console.log("  baseURL: https://token-plan-cn.xiaomimimo.com/v1");
+    console.log("");
+    console.log("Example custom config (simpleclaw.json):");
     console.log(JSON.stringify({
       providers: {
-        openrouter: {
+        mimo: {
           type: "openai-compatible",
-          apiKey: "{{openrouter}}",
-          baseURL: "https://openrouter.ai/api/v1"
+          apiKey: "{{mimo}}",
+          baseURL: "https://token-plan-cn.xiaomimimo.com/v1"
         }
       },
       models: {
-        default: { provider: "openrouter", model: "tencent/hy3-preview:free" }
+        default: { provider: "mimo", model: "mimo" }
       }
     }, null, 2));
     return;

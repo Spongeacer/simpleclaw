@@ -25,6 +25,7 @@ import type {
   IToolRegistry,
   IToolCallHooks,
   IUserMemory,
+  AskUserQuestion,
 } from "./interfaces.js";
 import { ContextCompactor, DEFAULT_COMPACTOR_CONFIG } from "./compactor.js";
 import { DAGExecutor, HookRegistry, ReplanPolicy, type Plan, type ExecutionResult } from "../agent-runtime/plan/index.js";
@@ -63,6 +64,7 @@ export class AgentEngine implements IAgentEngine {
   private replanPolicy = new ReplanPolicy();
   private planExecutor = new DAGExecutor();
   private nudgeStates = new Map<SessionId, NudgeState>();
+  private questionResolvers = new Map<string, (answer: string) => void>();
   private defaultNudgeConfig: Omit<NudgeState, "turnsSinceMemoryNudge" | "toolItersSinceSkillNudge"> = {
     memoryNudgeInterval: 10,
     skillNudgeInterval: 10,
@@ -89,6 +91,7 @@ export class AgentEngine implements IAgentEngine {
   async dispose(): Promise<void> {
     this.nudgeStates.clear();
     this.workingSets.clear();
+    this.questionResolvers.clear();
     this.stableSystemPrompt = null;
     const ce = this.contextEngine as unknown as { dispose?: () => Promise<void> | void };
     if (typeof ce.dispose === "function") {
@@ -105,7 +108,7 @@ export class AgentEngine implements IAgentEngine {
     this.opts.logger.info("Skills prompt updated");
   }
 
-  async *chat(sessionId: SessionId, message: string): AsyncGenerator<IChatEvent> {
+  async *chat(sessionId: SessionId, message: string, signal?: AbortSignal): AsyncGenerator<IChatEvent> {
     const session = await this.opts.store.get(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
@@ -137,6 +140,11 @@ export class AgentEngine implements IAgentEngine {
     }
 
     for (let i = 0; i < maxIterations; i++) {
+      if (signal?.aborted) {
+        yield { type: "error", code: "ABORTED", message: `Agent execution aborted: ${signal.reason}` };
+        return;
+      }
+
       // Compact context if it grew too large
       const compactionCfg = this.opts.config.compaction
         ? { ...DEFAULT_COMPACTOR_CONFIG, ...this.opts.config.compaction }
@@ -191,9 +199,11 @@ export class AgentEngine implements IAgentEngine {
         const prevTotal = (session.metadata?.totalToolCallRounds as number | undefined) ?? 0;
         session.metadata = { ...session.metadata, totalToolCallRounds: prevTotal + 1 };
 
-        const usePlan = this.shouldUsePlan(response.toolCalls, i, sessionId);
+        // ask_user_question requires blocking user interaction — never run in plan mode
+        const hasQuestion = response.toolCalls.some((c) => c.name === "ask_user_question");
+        const usePlan = !hasQuestion && this.shouldUsePlan(response.toolCalls, i, sessionId);
 
-        if (usePlan) {
+    if (usePlan) {
           // ─── Plan Mode: Parallel Execution ─────────────────────────────────────
 
           // Phase 1: Serial approval check + yield tool_calls
@@ -255,6 +265,60 @@ export class AgentEngine implements IAgentEngine {
           // ─── Serial Mode: Original Behavior ────────────────────────────────────
 
           for (const call of response.toolCalls) {
+            // Intercept ask_user_question for blocking UI interaction
+            if (call.name === "ask_user_question") {
+              yield { type: "tool_call", call: { id: call.id, name: call.name, arguments: call.arguments } };
+
+              const args = call.arguments as Record<string, unknown>;
+              const rawQuestions = Array.isArray(args.questions) ? args.questions : [];
+              const questionId = crypto.randomUUID();
+
+              const questions: AskUserQuestion[] = rawQuestions.map((q: unknown) => {
+                const rq = q as Record<string, unknown>;
+                const rawOptions = Array.isArray(rq.options) ? rq.options : [];
+                return {
+                  question: String(rq.question || ""),
+                  options: rawOptions.map((o: unknown) => {
+                    const ro = o as Record<string, unknown>;
+                    return {
+                      label: String(ro.label || ""),
+                      description: ro.description ? String(ro.description) : undefined,
+                    };
+                  }),
+                  multiSelect: !!rq.multi_select,
+                };
+              });
+
+              // Yield question event so the Gateway can forward it to the client
+              yield { type: "question", questionId, questions };
+
+              // Block until the user answers via answerQuestion()
+              const answer = await new Promise<string>((resolve, reject) => {
+                this.questionResolvers.set(questionId, resolve);
+                // If already aborted, reject immediately
+                if (signal?.aborted) {
+                  reject(new Error(`Aborted: ${signal.reason}`));
+                }
+                // Listen for future abort
+                signal?.addEventListener("abort", () => {
+                  this.questionResolvers.delete(questionId);
+                  reject(new Error(`Aborted: ${signal.reason}`));
+                }, { once: true });
+              });
+              this.questionResolvers.delete(questionId);
+
+              const qResult: ToolResult = { callId: call.id, output: `User answered: ${answer}` };
+              yield { type: "tool_result", result: qResult };
+              session.turns.push({
+                id: crypto.randomUUID(),
+                role: "tool",
+                content: qResult.output,
+                toolCallId: call.id,
+                timestamp: new Date(),
+              });
+              continue;
+            }
+
             yield { type: "tool_call", call: { id: call.id, name: call.name, arguments: call.arguments } };
 
             const decision = await this.opts.approval.request({
@@ -279,7 +343,7 @@ export class AgentEngine implements IAgentEngine {
             }
 
             await this.runToolHook("beforeExecute", call, sessionId);
-            const result = await this.opts.tools.execute(call);
+            const result = await this.opts.tools.execute(call, { sessionId });
             await this.runToolHook("afterExecute", call, sessionId, result);
             yield { type: "tool_result", result };
             session.turns.push({
@@ -1188,6 +1252,9 @@ export class AgentEngine implements IAgentEngine {
   // ─── Plan Mode ───────────────────────────────────────────────────────────────
 
   private shouldUsePlan(toolCalls: ToolCall[], iteration: number, sessionId: SessionId): boolean {
+    // ask_user_question requires serial blocking interaction
+    if (toolCalls.some((c) => c.name === "ask_user_question")) return false;
+
     const mode = this.opts.config.planMode ?? "auto";
     if (mode === "off") return false;
     if (mode === "always") return true;
@@ -1273,6 +1340,16 @@ export class AgentEngine implements IAgentEngine {
     }
 
     return result;
+  }
+
+  /** Public API for Gateway to submit a user answer to a pending question. */
+  answerQuestion(questionId: string, answer: string): void {
+    const resolve = this.questionResolvers.get(questionId);
+    if (resolve) {
+      resolve(answer);
+    } else {
+      this.opts.logger.warn("answerQuestion called for unknown questionId", { questionId });
+    }
   }
 
 }

@@ -12,7 +12,10 @@ import { ToolRegistry } from "../agent-runtime/tool-registry.js";
 import {
   createReadTool,
   createEditTool,
+  createWriteTool,
   createBashTool,
+  createBashOutputTool,
+  createKillShellTool,
   createThinkTool,
   createGrepTool,
   createLsTool,
@@ -26,6 +29,10 @@ import {
   createWebFetchTool,
   createGlobTool,
   createGitTool,
+  createTodoWriteTool,
+  createTodoReadTool,
+  createAskUserQuestionTool,
+  createNotebookEditTool,
 } from "../agent-runtime/tools/index.js";
 import { FileAccessTracker } from "../agent-runtime/file-tracker.js";
 import { DockerSandbox } from "../agent-runtime/sandbox.js";
@@ -71,7 +78,14 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
   const tools = new ToolRegistry();
   tools.register(createReadTool(sandbox, tracker));
   tools.register(createEditTool(sandbox, tracker));
+  tools.register(createWriteTool(sandbox));
   tools.register(createBashTool(sandbox));
+  tools.register(createBashOutputTool(sandbox));
+  tools.register(createKillShellTool(sandbox));
+  tools.register(createTodoWriteTool(sandbox));
+  tools.register(createTodoReadTool(sandbox));
+  tools.register(createAskUserQuestionTool());
+  tools.register(createNotebookEditTool(sandbox));
   tools.register(createThinkTool());
   tools.register(createGrepTool(sandbox, agentConfig.workspace));
   tools.register(createLsTool(agentConfig.workspace));
@@ -218,6 +232,7 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
       }
       worker.stop();
       await gateway.close();
+      await engine.dispose?.();
       server.close();
     },
   };

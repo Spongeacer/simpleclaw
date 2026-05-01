@@ -12,10 +12,9 @@
  * Use this only when parallel execution provides measurable benefit.
  */
 
-import type { ITool, ILogger } from "../../core/interfaces.js";
-import type { AgentPool } from "../agent-pool.js";
+import type { ITool, ILogger, IAgentPool } from "../../core/interfaces.js";
 
-export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool {
+export function createSpawnMultipleTool(pool: IAgentPool, logger: ILogger): ITool {
   return {
     name: "spawn_multiple",
     description:
@@ -77,13 +76,30 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
                 type: "string",
                 description: "Optional: custom system prompt for this sub-agent",
               },
+              verbose: {
+                type: "boolean",
+                description: "Optional: include full event stream in result (default false)",
+              },
+              context_files: {
+                type: "array",
+                items: { type: "string" },
+                description: "Optional: file paths to read and prepend as context",
+              },
+              timeout: {
+                type: "number",
+                description: "Optional: timeout in seconds for this sub-agent (default 300s)",
+              },
+              max_iterations: {
+                type: "number",
+                description: "Optional: max tool call iterations for this sub-agent",
+              },
             },
             required: ["task"],
           },
         },
         max_concurrency: {
           type: "number",
-          description: "Max concurrent sub-agents (1-8, default: 4). Higher = faster but more tokens.",
+          description: "Max concurrent sub-agents (default: from config or 4)",
         },
       },
       required: ["tasks"],
@@ -92,13 +108,10 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
     execute: async (args) => {
       const description = args.description ? String(args.description) : undefined;
       const tasks = Array.isArray(args.tasks) ? args.tasks : [];
-      const maxConcurrency = typeof args.max_concurrency === "number" ? args.max_concurrency : 4;
+      const maxConcurrency = typeof args.max_concurrency === "number" ? args.max_concurrency : undefined;
 
       if (tasks.length === 0) {
         return "Error: No tasks provided.";
-      }
-      if (tasks.length > 20) {
-        return "Error: Too many tasks (max 20). Split into multiple spawn_multiple calls.";
       }
 
       logger.info("Spawn multiple invoked", {
@@ -116,8 +129,12 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
           model: t.model as { provider: string; model: string } | undefined,
           tools: Array.isArray(t.tools) ? t.tools.map(String) : undefined,
           systemPrompt: t.system_prompt ? String(t.system_prompt) : undefined,
+          verbose: !!t.verbose,
+          contextFiles: Array.isArray(t.context_files) ? t.context_files.map(String) : undefined,
+          timeoutMs: typeof t.timeout === "number" ? t.timeout * 1000 : undefined,
+          maxIterations: typeof t.max_iterations === "number" ? t.max_iterations : undefined,
         })),
-        maxConcurrency: Math.min(Math.max(1, maxConcurrency), 8),
+        maxConcurrency,
       });
 
       return result.mergedSummary;

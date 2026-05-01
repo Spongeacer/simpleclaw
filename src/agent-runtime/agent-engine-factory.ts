@@ -26,14 +26,19 @@ export class AgentEngineFactory implements IAgentEngineFactory {
     private userMemory?: IUserMemory,
   ) {}
 
-  create(config: AgentConfig, llm: ILLMClient, tools: IToolRegistry): IAgentEngine {
+  create(
+    config: AgentConfig,
+    llm: ILLMClient,
+    tools: IToolRegistry,
+    overrides?: { approval?: IApprovalGate; logger?: ILogger },
+  ): IAgentEngine {
     return new AgentEngine({
       config,
       store: this.store,
       llm,
       tools,
-      approval: this.approval,
-      logger: this.logger,
+      approval: overrides?.approval ?? this.approval,
+      logger: overrides?.logger ?? this.logger,
       contextEngine: this.contextEngine,
       userMemory: this.userMemory,
     });

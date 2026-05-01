@@ -193,6 +193,15 @@ export class Gateway {
         return this.taskQueue.list({ sessionId, status: validStatus });
       }
 
+      case GatewayMethods.QUESTION_ANSWER: {
+        const { questionId, answer } = req.params as { questionId: string; answer: string };
+        if (typeof this.engine.answerQuestion === "function") {
+          this.engine.answerQuestion(questionId, answer);
+          return { answered: true };
+        }
+        throw new Error("AgentEngine does not support question answering");
+      }
+
       case GatewayMethods.SESSIONS_CREATE: {
         const { agentId, channelId, initialMessage } = req.params as {
           agentId: string;

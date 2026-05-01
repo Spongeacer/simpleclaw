@@ -1,5 +1,6 @@
 # SimpleClaw sensitive files
 keys.json
+secrets.json
 .simpleclaw/keys.json
 
 # Dependencies

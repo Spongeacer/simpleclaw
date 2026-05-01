@@ -44,6 +44,13 @@ const tests = [
   { name: 'SSRF guard', file: 'test-ssrf-guard.mjs' },
   { name: 'Multi-step reasoning', file: 'test-multi-step-reasoning.mjs' },
   { name: 'DAG engine', file: 'test-dag-engine.mjs' },
+  { name: 'Web search', file: 'test-web-search-unit.mjs' },
+  { name: 'FS tools (real)', file: 'test-real-fs-tools.mjs' },
+  { name: 'Web fetch (real)', file: 'test-real-web-fetch.mjs' },
+  { name: 'Todo & notebook (real)', file: 'test-real-todo-notebook.mjs' },
+  { name: 'Shell tools (real)', file: 'test-real-shell-tools.mjs' },
+  { name: 'Memory tools (real)', file: 'test-real-memory.mjs' },
+  { name: 'Git tool (real)', file: 'test-real-git.mjs' },
 
   // Live tests with real LLM (require API key — will FAIL if missing)
   { name: 'Live agent', file: 'test-live-agent.mjs' },
@@ -51,6 +58,7 @@ const tests = [
   { name: 'Live prompt orchestration', file: 'test-live-prompt-orch.mjs' },
   { name: 'Live evaluation', file: 'test-live-evaluation.mjs' },
   { name: 'Live DAG engine', file: 'test-live-dag.mjs' },
+  { name: 'Live spawn', file: 'test-live-spawn.mjs' },
 ];
 
 let passed = 0;

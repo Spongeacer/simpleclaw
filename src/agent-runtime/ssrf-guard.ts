@@ -32,6 +32,12 @@ const IPV4_DENY_RANGES: Array<{ start: number; end: number; label: string }> = [
   { start: 0xa9fe0000, end: 0xa9feffff, label: "169.254.0.0/16" },
   { start: 0xe0000000, end: 0xefffffff, label: "224.0.0.0/4 (multicast)" },
   { start: 0xffffffff, end: 0xffffffff, label: "255.255.255.255/32" },
+  // Docker default bridge + common container networks
+  { start: 0xac110000, end: 0xac11ffff, label: "172.17.0.0/16 (Docker)" },
+  { start: 0xc0000200, end: 0xc00002ff, label: "192.0.2.0/24 (TEST-NET-1)" },
+  { start: 0xc6336400, end: 0xc63364ff, label: "198.51.100.0/24 (TEST-NET-2)" },
+  { start: 0xcb007100, end: 0xcb0071ff, label: "203.0.113.0/24 (TEST-NET-3)" },
+  { start: 0xc6120000, end: 0xc613ffff, label: "198.18.0.0/15 (benchmark)" },
 ];
 
 function ipv4ToInt(ip: string): number {

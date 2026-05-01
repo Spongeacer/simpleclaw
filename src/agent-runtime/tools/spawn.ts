@@ -68,6 +68,23 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
           type: "string",
           description: "Optional: pass a previous sub-agent session ID to resume its conversation instead of starting fresh",
         },
+        verbose: {
+          type: "boolean",
+          description: "Optional: include full event stream (thinking, tool calls) in result. Default false to save tokens.",
+        },
+        context_files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional: file paths to read and prepend as context to the sub-agent's task",
+        },
+        timeout: {
+          type: "number",
+          description: "Optional: timeout in seconds for the sub-agent execution (default 300s)",
+        },
+        max_iterations: {
+          type: "number",
+          description: "Optional: max tool call iterations for the sub-agent",
+        },
       },
       required: ["task"],
       additionalProperties: false,
@@ -80,6 +97,10 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
       const tools = Array.isArray(args.tools) ? args.tools.map(String) : undefined;
       const systemPrompt = args.system_prompt ? String(args.system_prompt) : undefined;
       const sessionId = args.session_id ? String(args.session_id) : undefined;
+      const verbose = !!args.verbose;
+      const contextFiles = Array.isArray(args.context_files) ? args.context_files.map(String) : undefined;
+      const timeoutMs = typeof args.timeout === "number" ? args.timeout * 1000 : undefined;
+      const maxIterations = typeof args.max_iterations === "number" ? args.max_iterations : undefined;
 
       logger.info("Spawn tool invoked", {
         description,
@@ -87,9 +108,14 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
         role,
         model: model?.model,
         resumed: !!sessionId,
+        verbose,
+        contextFiles: contextFiles?.length ?? 0,
       });
 
-      const result = await pool.spawn({ task, description, role, model, tools, systemPrompt, sessionId });
+      const result = await pool.spawn({
+        task, description, role, model, tools, systemPrompt, sessionId,
+        verbose, contextFiles, timeoutMs, maxIterations,
+      });
       return result.result;
     },
   };

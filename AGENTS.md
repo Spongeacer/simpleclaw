@@ -386,24 +386,51 @@ Serves `ui/` directory. Path guards prevent `../` traversal. MIME type mapping f
 
 ## Layer 4: UI (`ui/`)
 
+Hermes-style three-pane web console. Pure vanilla JS, no build step.
+
+### Layout
+
+```
+┌─────────────┬─────────────────────────────┬──────────────┐
+│  Sidebar    │         Main Chat           │ Right Panel  │
+│  (260px)    │                             │ (320px)      │
+│             │  ┌───────────────────────┐  │              │
+│  Sessions   │  │ Welcome / Messages    │  │  Tasks       │
+│  list       │  │                       │  │  Details     │
+│  New btn    │  │  User / Assistant     │  │              │
+│             │  │  bubbles              │  │              │
+│  Footer:    │  └───────────────────────┘  │              │
+│  conn       │  ┌───────────────────────┐  │              │
+│  settings   │  │ Composer (input+send) │  │              │
+│             │  └───────────────────────┘  │              │
+└─────────────┴─────────────────────────────┴──────────────┘
+```
+
+- **Mobile** (`≤680px`): sidebar becomes overlay drawer, right panel hidden (toggle via topbar buttons)
+- **Tablet** (`≤900px`): right panel becomes overlay
+
 ### `app.js`
 
-WebSocket client logic:
-- `ensureSession()` — auto-creates session on first send
-- `sendMessage()` — sends `chat.send` JSON-RPC request
-- Event handlers: `thinking` (inline update), `tool_call`/`tool_result` (separate bubbles), `text` (append), `done` (finalize)
-- `updateInputState()` — enables input only when WS connected
+WebSocket JSON-RPC client:
+- **Connection**: `connect` → stores settings in `localStorage`
+- **Sessions**: create, switch, list (memory + server sync), delete (local only)
+- **Chat**: `chat.send` with streaming event handling
+  - `thinking` → collapsible thinking chain
+  - `tool_call` / `tool_result` → tool call/result cards
+  - `text` → streaming markdown answer
+  - `done` / `error` → status pill update
+- **Tasks**: `tasks.list` / `tasks.get` polling every 5s; task detail modal
+- **Markdown rendering**: `marked.js` (CDN) with `highlight.js` for code blocks
 
 ### `index.html`
 
-- Connection bar (host:port input + connect button)
-- Chat area (message bubbles)
-- Input area (textarea + send button)
-- Collapsible raw events log (right panel)
+- Settings modal (WebSocket URL, token, agent ID)
+- Task detail modal (full task dump)
+- Tabbed right panel (Tasks / Details)
 
 ### `style.css`
 
-Dark theme. User messages: right-aligned, blue bg. Assistant: left-aligned, gray bg.
+Dark theme (`#0d0d12` bg). CSS variables for theming. Markdown message styles: headings, lists, tables, blockquotes, inline code, code blocks with `highlight.js` `github-dark` theme.
 
 ---
 
