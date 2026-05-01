@@ -109,7 +109,7 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
 
       const result = await pool.spawnMultiple({
         description,
-        tasks: tasks.map((t: any) => ({
+        tasks: tasks.map((t: Record<string, unknown>) => ({
           description: t.description ? String(t.description) : undefined,
           task: String(t.task),
           role: t.role ? String(t.role) : undefined,

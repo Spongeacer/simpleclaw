@@ -4,6 +4,7 @@
  */
 
 import { createServer } from "http";
+import { mkdir } from "fs/promises";
 import { Gateway } from "../gateway/server.js";
 import { AgentEngine } from "../core/agent-engine.js";
 import { createRouter } from "../agent-runtime/provider-factory.js";
@@ -104,7 +105,18 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
 
   // Register skill management tool
   const userSkillsDir = (process.env.SIMPLECLAW_HOME ?? `${process.env.HOME || process.env.USERPROFILE || "."}/.simpleclaw`) + "/skills";
-  tools.register(createSkillManageTool({ skillsDir: userSkillsDir, logger }));
+  await mkdir(userSkillsDir, { recursive: true });
+
+  // Extract reusable skill reload logic
+  async function reloadSkills(): Promise<void> {
+    const newSkills = await loadAllSkills({ workspace: agentConfig.workspace, logger });
+    tools.register(createSkillTool(newSkills, logger));
+    skillsPrompt = formatSkillList(newSkills);
+    engine.updateSkills(skillsPrompt);
+    logger.info("Skills hot-reloaded", { count: newSkills.length });
+  }
+
+  tools.register(createSkillManageTool({ skillsDir: userSkillsDir, logger, onChange: reloadSkills }));
 
   // Assemble Agent Pool for multi-agent collaboration
   const engineFactory = new AgentEngineFactory(store, approval, logger, undefined, userMemory);
@@ -142,17 +154,7 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
   const skillWatchDirs = resolveSkillScanDirs(agentConfig.workspace)
     .filter((s) => s.source !== "builtin")
     .map((s) => s.dir);
-  const skillWatcher = new SkillWatcher(
-    skillWatchDirs,
-    async () => {
-      const newSkills = await loadAllSkills({ workspace: agentConfig.workspace, logger });
-      tools.register(createSkillTool(newSkills, logger));
-      skillsPrompt = formatSkillList(newSkills);
-      engine.updateSkills(skillsPrompt);
-      logger.info("Skills hot-reloaded", { count: newSkills.length });
-    },
-    logger,
-  );
+  const skillWatcher = new SkillWatcher(skillWatchDirs, reloadSkills, logger);
   skillWatcher.start();
 
   // Load MCP tools (best-effort: failures are logged but never fatal)

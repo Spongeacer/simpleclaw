@@ -1,10 +1,10 @@
 /**
  * SimpleClaw — Skill Management Tool
  * Auto-create and patch reusable skills from successful task patterns.
- * 
+ *
  * Skills are stored as Markdown files with YAML frontmatter in:
- *   ~/.simpleclaw/skills/auto-generated/{skill-name}/SKILL.md
- * 
+ *   ~/.simpleclaw/skills/{skill-name}/SKILL.md
+ *
  * Format compatible with agentskills.io open standard.
  */
 
@@ -15,6 +15,7 @@ import type { ITool, ILogger } from "../../core/interfaces.js";
 export interface SkillManageOptions {
   skillsDir: string;
   logger: ILogger;
+  onChange?: () => void | Promise<void>;
 }
 
 interface SkillFrontmatter {
@@ -105,7 +106,7 @@ async function atomicWrite(path: string, content: string): Promise<void> {
 }
 
 export function createSkillManageTool(opts: SkillManageOptions): ITool {
-  const { skillsDir, logger } = opts;
+  const { skillsDir, logger, onChange } = opts;
 
   return {
     name: "skill_manage",
@@ -215,6 +216,9 @@ export function createSkillManageTool(opts: SkillManageOptions): ITool {
         const fullContent = serializeSkill(frontmatter, args.content);
         await atomicWrite(skillPath, fullContent);
         logger.info("Skill created", { name: safeName, path: skillPath });
+        if (onChange) {
+          void Promise.resolve(onChange()).catch(() => {});
+        }
         return `Skill '${safeName}' created successfully.\nPath: ${skillPath}`;
       }
 
@@ -276,6 +280,9 @@ export function createSkillManageTool(opts: SkillManageOptions): ITool {
           await atomicWrite(skillPath, patched);
         }
         logger.info("Skill patched", { name: safeName });
+        if (onChange) {
+          void Promise.resolve(onChange()).catch(() => {});
+        }
         return `Skill '${safeName}' patched successfully. Original backed up to ${skillPath}.bak`;
       }
 

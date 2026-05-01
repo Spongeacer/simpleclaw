@@ -284,7 +284,7 @@ export interface SpawnResult {
   agentId: string;
   sessionId: string;
   result: string;
-  events: { type: string; text?: string }[];
+  events: { type: string; text?: string; code?: string; message?: string }[];
 }
 
 export interface IAgentPool {

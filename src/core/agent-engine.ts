@@ -47,9 +47,8 @@ export class AgentEngine implements IAgentEngine {
   private stableSystemPrompt: string | null = null;
   private replanPolicy = new ReplanPolicy();
   private planExecutor = new DAGExecutor();
-  private nudgeState: NudgeState = {
-    turnsSinceMemoryNudge: 0,
-    toolItersSinceSkillNudge: 0,
+  private nudgeStates = new Map<SessionId, NudgeState>();
+  private defaultNudgeConfig: Omit<NudgeState, "turnsSinceMemoryNudge" | "toolItersSinceSkillNudge"> = {
     memoryNudgeInterval: 10,
     skillNudgeInterval: 10,
   };
@@ -102,7 +101,8 @@ export class AgentEngine implements IAgentEngine {
     const preTurnCount = session.turns.length; // track new turns for context-engine ingestion
 
     // Nudge: increment counter at the start of each user turn
-    this.nudgeState.turnsSinceMemoryNudge++;
+    const nudge = this.getOrCreateNudgeState(sessionId);
+    nudge.turnsSinceMemoryNudge++;
 
     // Ensure stable system prompt is built once (async for user memory loading)
     if (!this.stableSystemPrompt) {
@@ -271,7 +271,7 @@ export class AgentEngine implements IAgentEngine {
         }
 
         // Nudge: check if agent proactively used memory/skill tools this iteration
-        this.updateNudgeCounters(session.turns);
+        this.updateNudgeCounters(sessionId, session.turns);
 
         yield { type: "thinking", text: `Processing results (${i + 1}/${maxIterations})...` };
         continue;
@@ -460,13 +460,40 @@ export class AgentEngine implements IAgentEngine {
       parts.push(workingSet);
     }
 
+    // SLOT: LIVE USER MEMORY — current state (may differ from frozen snapshot)
+    const liveMemory = await this.buildLiveUserMemorySection();
+    if (liveMemory) {
+      parts.push(liveMemory);
+    }
+
     // SLOT: NUDGE — gentle reminder to persist knowledge
-    const nudge = this.buildNudgeSection();
+    const nudge = this.buildNudgeSection(sessionId);
     if (nudge) {
       parts.push(nudge);
     }
 
     return parts.join("\n\n");
+  }
+
+  /** Load current user memory for live injection into dynamic prompt. */
+  private async buildLiveUserMemorySection(): Promise<string | undefined> {
+    if (!this.userMemory) return undefined;
+    try {
+      const { memory, user, memoryUsage, userUsage } = await this.userMemory.load();
+      const lines: string[] = [];
+      if (memory.trim()) {
+        lines.push(`═══ LIVE MEMORY [${memoryUsage}] ═══`);
+        lines.push(memory);
+      }
+      if (user.trim()) {
+        lines.push(`═══ LIVE USER PROFILE [${userUsage}] ═══`);
+        lines.push(user);
+      }
+      return lines.length > 0 ? lines.join("\n") : undefined;
+    } catch (err) {
+      this.logger.warn("Failed to load live user memory", { error: String(err) });
+      return undefined;
+    }
   }
 
   /** Build the stable (cacheable) portion of the system prompt. */
@@ -910,20 +937,21 @@ export class AgentEngine implements IAgentEngine {
    * If the agent proactively used user_memory or skill_manage tools,
    * reset the corresponding counter (no need to nudge).
    */
-  private updateNudgeCounters(turns: ConversationTurn[]): void {
-    this.nudgeState.toolItersSinceSkillNudge++;
+  private updateNudgeCounters(sessionId: SessionId, turns: ConversationTurn[]): void {
+    const nudge = this.getOrCreateNudgeState(sessionId);
+    nudge.toolItersSinceSkillNudge++;
 
     const lastAssistant = [...turns].reverse().find(t => t.role === "assistant" && t.toolCalls && t.toolCalls.length > 0);
     if (!lastAssistant?.toolCalls) return;
 
     const toolNames = new Set(lastAssistant.toolCalls.map(tc => tc.name));
     if (toolNames.has("user_memory")) {
-      this.nudgeState.turnsSinceMemoryNudge = 0;
-      this.logger.debug("Nudge: memory tool used, counter reset");
+      nudge.turnsSinceMemoryNudge = 0;
+      this.logger.debug("Nudge: memory tool used, counter reset", { sessionId });
     }
     if (toolNames.has("skill_manage")) {
-      this.nudgeState.toolItersSinceSkillNudge = 0;
-      this.logger.debug("Nudge: skill tool used, counter reset");
+      nudge.toolItersSinceSkillNudge = 0;
+      this.logger.debug("Nudge: skill tool used, counter reset", { sessionId });
     }
   }
 
@@ -932,10 +960,13 @@ export class AgentEngine implements IAgentEngine {
    * Injected into the dynamic system prompt to remind the agent
    * to persist knowledge without being pushy.
    */
-  private buildNudgeSection(): string | undefined {
+  private buildNudgeSection(sessionId: SessionId): string | undefined {
+    const nudge = this.nudgeStates.get(sessionId);
+    if (!nudge) return undefined;
+
     const lines: string[] = [];
-    const mem = this.nudgeState.turnsSinceMemoryNudge >= this.nudgeState.memoryNudgeInterval;
-    const skill = this.nudgeState.toolItersSinceSkillNudge >= this.nudgeState.skillNudgeInterval;
+    const mem = nudge.turnsSinceMemoryNudge >= nudge.memoryNudgeInterval;
+    const skill = nudge.toolItersSinceSkillNudge >= nudge.skillNudgeInterval;
 
     if (mem && this.tools.get("user_memory")) {
       lines.push("💡 You have used many turns without saving anything to memory. If you learned something important about the user or project, consider calling `user_memory` with action='add'.");
@@ -948,9 +979,23 @@ export class AgentEngine implements IAgentEngine {
     return ["=== NUDGE ===", "", ...lines].join("\n");
   }
 
+  private getOrCreateNudgeState(sessionId: SessionId): NudgeState {
+    let state = this.nudgeStates.get(sessionId);
+    if (!state) {
+      state = {
+        turnsSinceMemoryNudge: 0,
+        toolItersSinceSkillNudge: 0,
+        ...this.defaultNudgeConfig,
+      };
+      this.nudgeStates.set(sessionId, state);
+    }
+    return state;
+  }
+
   /** Clean up memory for a deleted session. Call when session is explicitly deleted. */
   cleanupSession(sessionId: SessionId): void {
     this.workingSets.delete(sessionId);
+    this.nudgeStates.delete(sessionId);
     this.contextEngine.cleanupSession?.(sessionId);
   }
 

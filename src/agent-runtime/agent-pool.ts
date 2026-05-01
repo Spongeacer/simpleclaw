@@ -298,7 +298,7 @@ export class AgentPool implements IAgentPool {
         `[error] ${description ? `[${description}] ` : ""}${error}`,
         "</subagent_result>",
       ].join("\n"),
-      events: [{ type: "error", text: error }],
+      events: [{ type: "error", code: "SPAWN_FAILED", message: error }],
     };
   }
 
