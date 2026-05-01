@@ -92,8 +92,8 @@ async function run() {
   const instructions = instr ? formatInstruction(instr) : undefined;
   const skillsPrompt = formatSkillList(skills);
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'test-agent',
       name: 'Test',
       model: { provider: 'mock', model: 'mock-recorder' },
@@ -108,10 +108,9 @@ async function run() {
     tools,
     approval,
     logger,
-    undefined,
     instructions,
-    skillsPrompt,
-  );
+    skills: skillsPrompt,
+  });
 
   // Create session and run chat
   const session = await store.create({

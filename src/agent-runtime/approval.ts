@@ -7,16 +7,6 @@
 import type { ApprovalPolicy } from "../core/types.js";
 import type { IApprovalGate, IApprovalRequest, ILogger } from "../core/interfaces.js";
 
-export interface ApprovalRequest {
-  id: string;
-  toolName: string;
-  arguments: Record<string, unknown>;
-  reason: string;
-  timestamp: Date;
-}
-
-export type ApprovalDecision = "approved" | "denied";
-
 export class ApprovalGate implements IApprovalGate {
   private pending = new Map<string, IApprovalRequest>();
 
@@ -25,8 +15,8 @@ export class ApprovalGate implements IApprovalGate {
   isRequired(toolName: string): boolean {
     if (this.policy === "always") return true;
     if (this.policy === "never") return false;
-    const dangerousTools = ["shell", "writeFile", "edit", "delete", "exec"];
-    return dangerousTools.some((d) => toolName.toLowerCase().includes(d));
+    const dangerousTools = ["bash", "edit"];
+    return dangerousTools.some((d) => toolName.toLowerCase() === d);
   }
 
   async request(req: IApprovalRequest): Promise<"approved" | "denied"> {

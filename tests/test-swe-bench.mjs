@@ -325,8 +325,8 @@ async function createEngine(workspace) {
     { apiKey: API_KEY, baseURL: BASE_URL }
   );
 
-  return new AgentEngine(
-    {
+  return new AgentEngine({
+    config: {
       id: 'swe-agent',
       name: 'SWEAgent',
       model: { provider: 'openrouter', model: MODEL },
@@ -337,12 +337,12 @@ async function createEngine(workspace) {
       maxIterations: 10,
       planMode: 'auto',
     },
-    new MemorySessionStore(),
-    llm,
-    tools,
-    new ApprovalGate('never', logger),
-    logger,
-  );
+    store: new MemorySessionStore(),
+    llm: llm,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 }
 
 async function runTests(taskDir) {

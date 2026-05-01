@@ -369,8 +369,8 @@ async function testAgentEngineIntegration() {
     },
   };
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'dag-test',
       name: 'DAGTest',
       model: { provider: 'mock', model: 'mock-parallel' },
@@ -380,12 +380,12 @@ async function testAgentEngineIntegration() {
       memory: { enabled: false },
       planMode: 'always',
     },
-    store,
-    mockLLM,
-    tools,
-    new ApprovalGate('never', logger),
-    logger
-  );
+    store: store,
+    llm: mockLLM,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 
   const session = await store.create({
     sessionId: `dag-integ-${Date.now()}`,

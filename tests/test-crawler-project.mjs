@@ -318,8 +318,8 @@ async function run() {
   const approval = new ApprovalGate('never', logger);
   const llm = new CrawlerReviewLLM();
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'test-crawler-agent',
       name: 'CrawlerReviewer',
       model: { provider: 'mock', model: 'mock-crawler-review' },
@@ -329,12 +329,12 @@ async function run() {
       workspace,
       memory: { enabled: false }, // disable memory for deterministic test
     },
-    store,
-    llm,
-    tools,
-    approval,
-    logger
-  );
+    store: store,
+    llm: llm,
+    tools: tools,
+    approval: approval,
+    logger: logger
+  });
 
   // Create session
   const session = await store.create({

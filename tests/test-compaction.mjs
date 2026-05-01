@@ -54,8 +54,8 @@ async function run() {
   tools.register(createReadTool(sandbox, tracker));
 
   const llm = new MockCompactLLM();
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'test',
       name: 'Test',
       model: { provider: 'mock', model: 'mock' },
@@ -64,12 +64,12 @@ async function run() {
       workspace,
       compaction: { thresholdTokens: 10, preserveTurns: 2, summaryMaxLength: 200 },
     },
-    store,
-    llm,
-    tools,
-    new ApprovalGate('never', logger),
-    logger
-  );
+    store: store,
+    llm: llm,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 
   // Create session with many turns to trigger compaction
   const session = await store.create({

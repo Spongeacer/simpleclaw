@@ -73,7 +73,7 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
                 items: { type: "string" },
                 description: "Optional: explicit tool names for this sub-agent",
               },
-              systemPrompt: {
+              system_prompt: {
                 type: "string",
                 description: "Optional: custom system prompt for this sub-agent",
               },
@@ -81,7 +81,7 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
             required: ["task"],
           },
         },
-        maxConcurrency: {
+        max_concurrency: {
           type: "number",
           description: "Max concurrent sub-agents (1-8, default: 4). Higher = faster but more tokens.",
         },
@@ -92,7 +92,7 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
     execute: async (args) => {
       const description = args.description ? String(args.description) : undefined;
       const tasks = Array.isArray(args.tasks) ? args.tasks : [];
-      const maxConcurrency = typeof args.maxConcurrency === "number" ? args.maxConcurrency : 4;
+      const maxConcurrency = typeof args.max_concurrency === "number" ? args.max_concurrency : 4;
 
       if (tasks.length === 0) {
         return "Error: No tasks provided.";
@@ -115,7 +115,7 @@ export function createSpawnMultipleTool(pool: AgentPool, logger: ILogger): ITool
           role: t.role ? String(t.role) : undefined,
           model: t.model as { provider: string; model: string } | undefined,
           tools: Array.isArray(t.tools) ? t.tools.map(String) : undefined,
-          systemPrompt: t.systemPrompt ? String(t.systemPrompt) : undefined,
+          systemPrompt: t.system_prompt ? String(t.system_prompt) : undefined,
         })),
         maxConcurrency: Math.min(Math.max(1, maxConcurrency), 8),
       });

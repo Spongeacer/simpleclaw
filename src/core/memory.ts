@@ -33,10 +33,5 @@ export interface SyncResult {
   chunks: number;
 }
 
-// ─── Session Working Set (transient, per-session) ─────────────────────────────
-
-export interface SessionWorkingSet {
-  activeTask?: string;
-  workingFiles: string[];
-  decisions: string[];
-}
+// SessionWorkingSet is defined privately in agent-engine.ts (transient per-session state).
+// No global export needed — workspace memory types only below this line.

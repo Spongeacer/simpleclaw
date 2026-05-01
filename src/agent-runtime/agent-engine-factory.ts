@@ -27,6 +27,15 @@ export class AgentEngineFactory implements IAgentEngineFactory {
   ) {}
 
   create(config: AgentConfig, llm: ILLMClient, tools: IToolRegistry): IAgentEngine {
-    return new AgentEngine(config, this.store, llm, tools, this.approval, this.logger, undefined, undefined, undefined, undefined, this.contextEngine, this.userMemory);
+    return new AgentEngine({
+      config,
+      store: this.store,
+      llm,
+      tools,
+      approval: this.approval,
+      logger: this.logger,
+      contextEngine: this.contextEngine,
+      userMemory: this.userMemory,
+    });
   }
 }

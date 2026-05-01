@@ -104,8 +104,8 @@ async function testMultiStepReadChain() {
 
   const mockLLM = new MockMultiStepLLM();
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'reasoning-test',
       name: 'ReasoningTest',
       model: { provider: 'mock', model: 'mock-reasoner' },
@@ -115,12 +115,12 @@ async function testMultiStepReadChain() {
       memory: { enabled: false },
       maxIterations: 5,
     },
-    store,
-    mockLLM,
-    tools,
-    new ApprovalGate('never', logger),
-    logger
-  );
+    store: store,
+    llm: mockLLM,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 
   const session = await store.create({
     sessionId: `reasoning-${Date.now()}`,
@@ -231,8 +231,8 @@ async function testMaxIterationsEnforced() {
     },
   };
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'limit-test',
       name: 'LimitTest',
       model: { provider: 'mock', model: 'mock-infinite' },
@@ -242,12 +242,12 @@ async function testMaxIterationsEnforced() {
       memory: { enabled: false },
       maxIterations: 3,
     },
-    store,
-    infiniteLLM,
-    tools,
-    new ApprovalGate('never', logger),
-    logger
-  );
+    store: store,
+    llm: infiniteLLM,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 
   const session = await store.create({
     sessionId: `limit-${Date.now()}`,

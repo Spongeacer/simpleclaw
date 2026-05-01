@@ -130,8 +130,8 @@ async function run() {
 
   tools.register(createSpawnTool(pool, logger));
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'test-parent',
       name: 'Parent',
       model: { provider: 'mock', model: 'mock-parent' },
@@ -140,12 +140,12 @@ async function run() {
       approvalPolicy: 'never',
       workspace,
     },
-    store,
-    parentLLM,
-    tools,
-    approval,
-    logger
-  );
+    store: store,
+    llm: parentLLM,
+    tools: tools,
+    approval: approval,
+    logger: logger
+  });
 
   // ── Test 1: Basic spawn with role preset ──────────────────────────────────
   console.log('\n=== Test 1: Spawn with role=explore ===');

@@ -54,8 +54,8 @@ function createEngine(store, llm, workspace, instructions, skills, extraConfig =
   tools.register(createEditTool(sandbox, tracker));
   tools.register(createBashTool(sandbox));
 
-  return new AgentEngine(
-    {
+  return new AgentEngine({
+    config: {
       id: 'test-agent',
       name: 'Test',
       model: { provider: 'mock', model: 'mock-recorder' },
@@ -67,12 +67,11 @@ function createEngine(store, llm, workspace, instructions, skills, extraConfig =
     store,
     llm,
     tools,
-    new ApprovalGate('never', logger),
+    approval: new ApprovalGate('never', logger),
     logger,
-    undefined,
     instructions,
     skills,
-  );
+  });
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

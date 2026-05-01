@@ -112,6 +112,9 @@ export type ModelRef = z.infer<typeof ModelRefSchema>;
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type SandboxConfig = z.infer<typeof SandboxConfigSchema>;
 export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+export type AuthConfig = z.infer<typeof AuthConfigSchema>;
+export type RateLimitConfig = z.infer<typeof RateLimitConfigSchema>;
+export type SessionStoreConfig = z.infer<typeof SessionStoreConfigSchema>;
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 

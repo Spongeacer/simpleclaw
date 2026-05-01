@@ -63,8 +63,8 @@ async function createLiveEngine(workspace, strictSchema = false, env = {}) {
 
   const client = createRealClient(strictSchema);
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'live-test',
       name: 'LiveTest',
       model: { provider: 'openrouter', model: MODEL },
@@ -73,12 +73,12 @@ async function createLiveEngine(workspace, strictSchema = false, env = {}) {
       workspace,
       memory: { enabled: false },
     },
-    store,
-    client,
-    tools,
-    new ApprovalGate('never', logger),
-    logger
-  );
+    store: store,
+    llm: client,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 
   return { engine, store, client };
 }
@@ -247,8 +247,8 @@ async function testSystemPromptDoesNotBreakToolCalling() {
 
   const client = createRealClient();
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'live-test',
       name: 'LiveTest',
       model: { provider: 'openrouter', model: MODEL },
@@ -259,13 +259,12 @@ async function testSystemPromptDoesNotBreakToolCalling() {
       memory: { enabled: false },
     },
     store,
-    client,
+    llm: client,
     tools,
-    new ApprovalGate('never', logger),
+    approval: new ApprovalGate('never', logger),
     logger,
-    undefined,
-    '=== PROJECT INSTRUCTIONS ===\n- Use TypeScript.\n- Prefer async/await.',
-  );
+    instructions: '=== PROJECT INSTRUCTIONS ===\n- Use TypeScript.\n- Prefer async/await.',
+  });
 
   const session = await store.create({
     sessionId: `live-prompt-${Date.now()}`,

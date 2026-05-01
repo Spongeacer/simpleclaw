@@ -160,8 +160,8 @@ async function createEngine(llm) {
   tools.register(createWebFetchTool(logger));
   tools.register(createSkillTool([], logger));
 
-  return new AgentEngine(
-    {
+  return new AgentEngine({
+    config: {
       id: 'bench-agent',
       name: 'BenchmarkAgent',
       model: { provider: 'openrouter', model: 'mock' },
@@ -172,12 +172,12 @@ async function createEngine(llm) {
       maxIterations: 5,
       planMode: 'auto',
     },
-    new MemorySessionStore(),
-    llm,
-    tools,
-    new ApprovalGate('never', logger),
-    logger,
-  );
+    store: new MemorySessionStore(),
+    llm: llm,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 }
 
 // ─── Judgement Logic ─────────────────────────────────────────────────────────

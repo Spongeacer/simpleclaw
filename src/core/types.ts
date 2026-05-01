@@ -91,24 +91,7 @@ export type ApprovalPolicy =
 export type { IChatEvent as ChatEvent } from "./interfaces.js";
 
 // ─── Gateway ──────────────────────────────────────────────────────────────────
-// AuthConfig, RateLimitConfig, and SessionStoreConfig are manual types
-// (no corresponding Zod schema export needed).
-
-export interface AuthConfig {
-  type: "none" | "token" | "password";
-  token?: string;
-  passwordHash?: string;
-}
-
-export interface RateLimitConfig {
-  maxRequestsPerMinute: number;
-  blockDurationSeconds: number;
-}
-
-export interface SessionStoreConfig {
-  type: "sqlite" | "memory";
-  path?: string; // for sqlite
-}
+export type { AuthConfig, RateLimitConfig, SessionStoreConfig } from "./config-schema.js";
 
 // ─── Channel SDK ──────────────────────────────────────────────────────────────
 
@@ -136,14 +119,4 @@ export interface LoadedPlugin {
 }
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
-
-export class SimpleClawError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly cause?: unknown
-  ) {
-    super(message);
-    this.name = "SimpleClawError";
-  }
-}
+// Use native Error for now. Custom error class can be added when needed.

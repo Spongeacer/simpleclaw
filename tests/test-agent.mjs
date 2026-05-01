@@ -80,8 +80,8 @@ async function run() {
   const approval = new ApprovalGate('never', logger); // auto-approve for test
   const llm = new MockToolLLM();
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'test-agent',
       name: 'Test',
       model: { provider: 'mock', model: 'mock-tool' },
@@ -90,12 +90,12 @@ async function run() {
       approvalPolicy: 'never',
       workspace,
     },
-    store,
-    llm,
-    tools,
-    approval,
-    logger
-  );
+    store: store,
+    llm: llm,
+    tools: tools,
+    approval: approval,
+    logger: logger
+  });
 
   // Create session
   const session = await store.create({

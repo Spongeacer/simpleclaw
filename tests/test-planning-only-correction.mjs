@@ -37,7 +37,7 @@ const config = {
   workspace: "/tmp", maxIterations: 5,
 };
 
-const engine = new AgentEngine(config, mockStore, mockLLM, mockTools, mockApproval, logger);
+const engine = new AgentEngine({ config: config, store: mockStore, llm: mockLLM, tools: mockTools, approval: mockApproval, logger: logger });
 
 // ─── Test 1: Detect planning-only (no tools on actionable request) ───────────
 console.log("\n[1/5] Detect planning-only...");

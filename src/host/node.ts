@@ -173,7 +173,18 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
 
   // Assemble Core Engine
   const llm = router.resolve(agentConfig.model);
-  const engine = new AgentEngine(agentConfig, store, llm, tools, approval, logger, memory, instructions, skillsPrompt, undefined, undefined, userMemory);
+  const engine = new AgentEngine({
+    config: agentConfig,
+    store,
+    llm,
+    tools,
+    approval,
+    logger,
+    memory,
+    instructions,
+    skills: skillsPrompt,
+    userMemory,
+  });
 
   // Assemble Task Queue + Background Worker
   const taskQueue = new MemoryTaskQueue();

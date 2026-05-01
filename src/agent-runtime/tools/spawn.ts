@@ -60,11 +60,11 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
           items: { type: "string" },
           description: "Optional: explicit tool names for the sub-agent. Ignored if role is set. Default: inherits parent's tools (minus spawn).",
         },
-        systemPrompt: {
+        system_prompt: {
           type: "string",
           description: "Optional: custom system prompt for the sub-agent",
         },
-        sessionId: {
+        session_id: {
           type: "string",
           description: "Optional: pass a previous sub-agent session ID to resume its conversation instead of starting fresh",
         },
@@ -78,8 +78,8 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
       const role = args.role ? String(args.role) : undefined;
       const model = args.model as { provider: string; model: string } | undefined;
       const tools = Array.isArray(args.tools) ? args.tools.map(String) : undefined;
-      const systemPrompt = args.systemPrompt ? String(args.systemPrompt) : undefined;
-      const sessionId = args.sessionId ? String(args.sessionId) : undefined;
+      const systemPrompt = args.system_prompt ? String(args.system_prompt) : undefined;
+      const sessionId = args.session_id ? String(args.session_id) : undefined;
 
       logger.info("Spawn tool invoked", {
         description,

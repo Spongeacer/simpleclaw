@@ -58,8 +58,8 @@ async function createLiveEngine(workspace) {
 
   const client = createRealClient();
 
-  const engine = new AgentEngine(
-    {
+  const engine = new AgentEngine({
+    config: {
       id: 'live-agent',
       name: 'LiveAgent',
       model: { provider: 'openrouter', model: MODEL },
@@ -68,12 +68,12 @@ async function createLiveEngine(workspace) {
       workspace,
       memory: { enabled: false },
     },
-    store,
-    client,
-    tools,
-    new ApprovalGate('never', logger),
-    logger
-  );
+    store: store,
+    llm: client,
+    tools: tools,
+    approval: new ApprovalGate('never', logger),
+    logger: logger
+  });
 
   return { engine, store };
 }

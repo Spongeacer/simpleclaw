@@ -1,5 +1,5 @@
 /**
- * SimpleClaw Core — Agent Engine
+ * SimpleClaw Core �?Agent Engine
  * Pure logic. Zero platform dependencies. Zero I/O.
  * All external interactions go through injected interfaces.
  */
@@ -41,6 +41,21 @@ interface NudgeState {
   skillNudgeInterval: number;
 }
 
+export interface AgentEngineOptions {
+  config: AgentConfig;
+  store: ISessionStore;
+  llm: ILLMClient;
+  tools: IToolRegistry;
+  approval: IApprovalGate;
+  logger: ILogger;
+  memory?: IMemoryIndex;
+  instructions?: string;
+  skills?: string;
+  toolHooks?: IToolCallHooks;
+  contextEngine?: IContextEngine;
+  userMemory?: IUserMemory;
+}
+
 export class AgentEngine implements IAgentEngine {
   private contextEngine: IContextEngine;
   private workingSets = new Map<SessionId, SessionWorkingSet>();
@@ -53,33 +68,20 @@ export class AgentEngine implements IAgentEngine {
     skillNudgeInterval: 10,
   };
 
-  constructor(
-    private config: AgentConfig,
-    private store: ISessionStore,
-    private llm: ILLMClient,
-    private tools: IToolRegistry,
-    private approval: IApprovalGate,
-    private logger: ILogger,
-    private memory?: IMemoryIndex,
-    private instructions?: string,
-    private skills?: string,
-    private toolHooks?: IToolCallHooks,
-    contextEngine?: IContextEngine,
-    private userMemory?: IUserMemory,
-  ) {
-    this.contextEngine = contextEngine ?? new ContextCompactor(llm, logger);
+  constructor(private opts: AgentEngineOptions) {
+    this.contextEngine = opts.contextEngine ?? new ContextCompactor(opts.llm, opts.logger);
   }
 
   /**
    * Update the skills prompt dynamically (e.g. after hot-reload).
    */
   updateSkills(skillsPrompt: string | undefined): void {
-    this.skills = skillsPrompt;
-    this.logger.info("Skills prompt updated");
+    this.opts.skills = skillsPrompt;
+    this.opts.logger.info("Skills prompt updated");
   }
 
   async *chat(sessionId: SessionId, message: string): AsyncGenerator<IChatEvent> {
-    const session = await this.store.get(sessionId);
+    const session = await this.opts.store.get(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
     }
@@ -93,10 +95,10 @@ export class AgentEngine implements IAgentEngine {
     };
     session.turns.push(userTurn);
 
-    this.logger.info("Agent turn started", { sessionId, messageLength: message.length });
+    this.opts.logger.info("Agent turn started", { sessionId, messageLength: message.length });
     yield { type: "thinking", text: "Planning..." };
 
-    const maxIterations = this.config.maxIterations ?? 10;
+    const maxIterations = this.opts.config.maxIterations ?? 10;
     let answered = false;
     const preTurnCount = session.turns.length; // track new turns for context-engine ingestion
 
@@ -111,19 +113,19 @@ export class AgentEngine implements IAgentEngine {
 
     for (let i = 0; i < maxIterations; i++) {
       // Compact context if it grew too large
-      const compactionCfg = this.config.compaction
-        ? { ...DEFAULT_COMPACTOR_CONFIG, ...this.config.compaction }
+      const compactionCfg = this.opts.config.compaction
+        ? { ...DEFAULT_COMPACTOR_CONFIG, ...this.opts.config.compaction }
         : DEFAULT_COMPACTOR_CONFIG;
       const { turns: compactedTurns, didCompact, summary } = await this.contextEngine.assemble({
         turns: session.turns,
         config: compactionCfg,
         systemPromptText: this.stableSystemPrompt ?? undefined,
-        toolSchemas: this.tools.schema(),
-        contextWindow: this.config.model.contextWindow ?? 128_000,
+        toolSchemas: this.opts.tools.schema(),
+        contextWindow: this.opts.config.model.contextWindow ?? 128_000,
         sessionId,
-        memory: this.memory,
-        modelId: this.config.model.model,
-        availableTools: this.tools.schema().map((t) => t.name),
+        memory: this.opts.memory,
+        modelId: this.opts.config.model.model,
+        availableTools: this.opts.tools.schema().map((t) => t.name),
         prompt: message,
       });
       if (didCompact) {
@@ -131,9 +133,9 @@ export class AgentEngine implements IAgentEngine {
       }
 
       const messages = await this.buildMessages(compactedTurns, sessionId, summary);
-      const toolSchemas = this.tools.schema();
+      const toolSchemas = this.opts.tools.schema();
 
-      const response = await this.llm.complete(messages, toolSchemas);
+      const response = await this.opts.llm.complete(messages, toolSchemas);
 
       if (response.usage) {
         session.tokenCount += response.usage.promptTokens + response.usage.completionTokens;
@@ -141,7 +143,7 @@ export class AgentEngine implements IAgentEngine {
         // Feed actual usage back to compactor for calibration
         this.contextEngine.recordUsage?.(response.usage.promptTokens, session.turns, {
           systemPromptText: this.stableSystemPrompt ?? undefined,
-          toolSchemas: this.tools.schema(),
+          toolSchemas: this.opts.tools.schema(),
         });
       }
 
@@ -176,7 +178,7 @@ export class AgentEngine implements IAgentEngine {
           for (const call of response.toolCalls) {
             yield { type: "tool_call", call: { id: call.id, name: call.name, arguments: call.arguments } };
 
-            const decision = await this.approval.request({
+            const decision = await this.opts.approval.request({
               id: crypto.randomUUID(),
               toolName: call.name,
               arguments: call.arguments,
@@ -230,7 +232,7 @@ export class AgentEngine implements IAgentEngine {
           for (const call of response.toolCalls) {
             yield { type: "tool_call", call: { id: call.id, name: call.name, arguments: call.arguments } };
 
-            const decision = await this.approval.request({
+            const decision = await this.opts.approval.request({
               id: crypto.randomUUID(),
               toolName: call.name,
               arguments: call.arguments,
@@ -252,7 +254,7 @@ export class AgentEngine implements IAgentEngine {
             }
 
             await this.runToolHook("beforeExecute", call, sessionId);
-            const result = await this.tools.execute(call);
+            const result = await this.opts.tools.execute(call);
             await this.runToolHook("afterExecute", call, sessionId, result);
             yield { type: "tool_result", result };
             session.turns.push({
@@ -277,7 +279,7 @@ export class AgentEngine implements IAgentEngine {
         continue;
       }
 
-      // No tool calls — check for planning-only before treating as final answer
+      // No tool calls �?check for planning-only before treating as final answer
       if (this.detectPlanningOnly(response, session.turns)) {
         const steerTurn: ConversationTurn = {
           id: crypto.randomUUID(),
@@ -290,7 +292,7 @@ export class AgentEngine implements IAgentEngine {
         continue;
       }
 
-      // No tool calls — final answer
+      // No tool calls �?final answer
       const assistantTurn: ConversationTurn = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -315,17 +317,17 @@ export class AgentEngine implements IAgentEngine {
         try {
           await this.contextEngine.ingest({ sessionId, turn });
         } catch (err) {
-          this.logger.warn("Context engine ingest failed", { sessionId, error: String(err) });
+          this.opts.logger.warn("Context engine ingest failed", { sessionId, error: String(err) });
         }
       }
     }
 
-    await this.store.update(sessionId, {
+    await this.opts.store.update(sessionId, {
       turns: session.turns,
       tokenCount: session.tokenCount,
       metadata: session.metadata,
     });
-    this.logger.info("Agent turn complete", { sessionId, tokenCount: session.tokenCount });
+    this.opts.logger.info("Agent turn complete", { sessionId, tokenCount: session.tokenCount });
     yield { type: "done" };
   }
 
@@ -341,7 +343,7 @@ export class AgentEngine implements IAgentEngine {
     if (this.stableSystemPrompt) {
       messages.push({ role: "system", content: this.stableSystemPrompt, cacheControl: { type: "ephemeral" } });
     }
-    // Dynamic suffix (varies per turn — not cached)
+    // Dynamic suffix (varies per turn �?not cached)
     const dynamicContent = await this.buildDynamicSystemPrompt(turns, sessionId, compactedSummary);
     if (dynamicContent) {
       messages.push({ role: "system", content: dynamicContent });
@@ -403,15 +405,15 @@ export class AgentEngine implements IAgentEngine {
 
     // DYNAMIC SLOTS
 
-    // SLOT: COMPACTED HISTORY — embedded into system prompt instead of a separate message
+    // SLOT: COMPACTED HISTORY �?embedded into system prompt instead of a separate message
     if (compactedSummary) {
       parts.push(`=== COMPACTED HISTORY ===\n\n${compactedSummary}`);
     }
 
-    // SLOT: PROTOCOL — decision rules + plan mode + custom system prompt
+    // SLOT: PROTOCOL �?decision rules + plan mode + custom system prompt
     const protocolParts: string[] = [];
-    if (this.config.systemPrompt) {
-      protocolParts.push(this.config.systemPrompt);
+    if (this.opts.config.systemPrompt) {
+      protocolParts.push(this.opts.config.systemPrompt);
     }
     const complexity = this.assessComplexity(turns);
     if (complexity === "complex") {
@@ -422,51 +424,51 @@ export class AgentEngine implements IAgentEngine {
       parts.push(protocolParts.join("\n\n"));
     }
 
-    // SLOT: INSTRUCTIONS — project-level AGENTS.md / CLAUDE.md (only once per session)
-    const session = await this.store.get(sessionId);
+    // SLOT: INSTRUCTIONS �?project-level AGENTS.md / CLAUDE.md (only once per session)
+    const session = await this.opts.store.get(sessionId);
     const instructionsInjected = session?.metadata?.instructionsInjected === true;
-    if (!instructionsInjected && this.instructions) {
-      parts.push(this.instructions);
+    if (!instructionsInjected && this.opts.instructions) {
+      parts.push(this.opts.instructions);
       // Persist flag immediately so it survives compaction and reloads
       if (session) {
-        await this.store.update(sessionId, {
+        await this.opts.store.update(sessionId, {
           metadata: { ...session.metadata, instructionsInjected: true },
         });
       }
     }
 
-    // SLOT: SKILLS — available skills (injected every turn, lightweight)
-    if (this.skills) {
-      parts.push(this.skills);
+    // SLOT: SKILLS �?available skills (injected every turn, lightweight)
+    if (this.opts.skills) {
+      parts.push(this.opts.skills);
     }
 
-    // SLOT: KNOWLEDGE — relevant memory chunks (dynamic per-turn)
-    if (this.memory && this.config.memory?.enabled !== false) {
+    // SLOT: KNOWLEDGE �?relevant memory chunks (dynamic per-turn)
+    if (this.opts.memory && this.opts.config.memory?.enabled !== false) {
       const knowledge = await this.buildKnowledge(turns);
       if (knowledge) {
         parts.push(knowledge);
       }
     }
 
-    // SLOT: TIME — static timezone hint (cache-stable; dynamic clock is injected into user message)
+    // SLOT: TIME �?static timezone hint (cache-stable; dynamic clock is injected into user message)
     const timeSection = this.buildTimeSection();
     if (timeSection) {
       parts.push(timeSection);
     }
 
-    // SLOT: WORKING SET — recent files + contextual hints
+    // SLOT: WORKING SET �?recent files + contextual hints
     const workingSet = this.buildWorkingSet(turns, sessionId);
     if (workingSet) {
       parts.push(workingSet);
     }
 
-    // SLOT: LIVE USER MEMORY — current state (may differ from frozen snapshot)
+    // SLOT: LIVE USER MEMORY �?current state (may differ from frozen snapshot)
     const liveMemory = await this.buildLiveUserMemorySection();
     if (liveMemory) {
       parts.push(liveMemory);
     }
 
-    // SLOT: NUDGE — gentle reminder to persist knowledge
+    // SLOT: NUDGE �?gentle reminder to persist knowledge
     const nudge = this.buildNudgeSection(sessionId);
     if (nudge) {
       parts.push(nudge);
@@ -477,21 +479,21 @@ export class AgentEngine implements IAgentEngine {
 
   /** Load current user memory for live injection into dynamic prompt. */
   private async buildLiveUserMemorySection(): Promise<string | undefined> {
-    if (!this.userMemory) return undefined;
+    if (!this.opts.userMemory) return undefined;
     try {
-      const { memory, user, memoryUsage, userUsage } = await this.userMemory.load();
+      const { memory, user, memoryUsage, userUsage } = await this.opts.userMemory.load();
       const lines: string[] = [];
       if (memory.trim()) {
-        lines.push(`═══ LIVE MEMORY [${memoryUsage}] ═══`);
+        lines.push(`══�?LIVE MEMORY [${memoryUsage}] ═══`);
         lines.push(memory);
       }
       if (user.trim()) {
-        lines.push(`═══ LIVE USER PROFILE [${userUsage}] ═══`);
+        lines.push(`══�?LIVE USER PROFILE [${userUsage}] ═══`);
         lines.push(user);
       }
       return lines.length > 0 ? lines.join("\n") : undefined;
     } catch (err) {
-      this.logger.warn("Failed to load live user memory", { error: String(err) });
+      this.opts.logger.warn("Failed to load live user memory", { error: String(err) });
       return undefined;
     }
   }
@@ -511,9 +513,9 @@ export class AgentEngine implements IAgentEngine {
 
   /** Inject bounded user memory as a frozen snapshot (cache-friendly). */
   private async buildUserMemorySection(): Promise<string> {
-    if (!this.userMemory) return "";
+    if (!this.opts.userMemory) return "";
     try {
-      const { memory, user, memoryUsage, userUsage } = await this.userMemory.load();
+      const { memory, user, memoryUsage, userUsage } = await this.opts.userMemory.load();
       const lines: string[] = [];
       if (memory.trim()) {
         lines.push(`══════════════════════════════════════════════`);
@@ -529,7 +531,7 @@ export class AgentEngine implements IAgentEngine {
       }
       return lines.join("\n");
     } catch (err) {
-      this.logger.warn("Failed to load user memory", { error: String(err) });
+      this.opts.logger.warn("Failed to load user memory", { error: String(err) });
       return "";
     }
   }
@@ -579,7 +581,7 @@ export class AgentEngine implements IAgentEngine {
   }
 
   private buildSkillCreationGuidance(): string {
-    if (!this.tools.get("skill_manage")) return "";
+    if (!this.opts.tools.get("skill_manage")) return "";
     return [
       "=== SKILL CREATION ===",
       "",
@@ -596,7 +598,7 @@ export class AgentEngine implements IAgentEngine {
   }
 
   private buildToolGuidance(): string {
-    const schemas = this.tools.schema();
+    const schemas = this.opts.tools.schema();
     const toolNames = new Set(schemas.map((s) => s.name));
     const lines: string[] = [
       "=== TOOLS ===",
@@ -606,14 +608,14 @@ export class AgentEngine implements IAgentEngine {
     ];
 
     for (const s of schemas) {
-      lines.push(`• ${s.name} — ${s.description}`);
+      lines.push(`�?${s.name} �?${s.description}`);
     }
 
     lines.push("");
     lines.push("=== CORE RULES ===");
     lines.push("");
     const rules: string[] = [];
-    if (this.config.planMode !== "off") {
+    if (this.opts.config.planMode !== "off") {
       rules.push("When you need multiple tools, output ALL of them at once. Independent tools will run in parallel.");
     }
     rules.push("Read BEFORE editing. Use offset/limit for large files.");
@@ -642,7 +644,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("");
     lines.push("=== ANTI-PLANNING-ONLY RULE ===");
     lines.push("NEVER respond with only a plan, description, or promise of future action.");
-    lines.push("If the task requires tools: call them NOW in this turn. Do not say 'I will do X' — just do X.");
+    lines.push("If the task requires tools: call them NOW in this turn. Do not say 'I will do X' �?just do X.");
     lines.push("If you have already called tools and are summarizing results: that is fine.");
     lines.push("If no tools are needed (general knowledge/chat): answer directly without tool calls.");
     lines.push("Violating this rule wastes turns and will trigger a retry with a correction prompt.");
@@ -654,11 +656,11 @@ export class AgentEngine implements IAgentEngine {
     const lines: string[] = [
       "=== WORKSPACE ===",
       "",
-      `Working directory: ${this.config.workspace}`,
+      `Working directory: ${this.opts.config.workspace}`,
       "",
     ];
 
-    if (this.memory) {
+    if (this.opts.memory) {
       lines.push("Use `memory_search` to find files by description or recall project knowledge.");
       lines.push("Use `memory_save` after significant work to persist decisions and patterns.");
     }
@@ -678,9 +680,9 @@ export class AgentEngine implements IAgentEngine {
     // 2. Extract recent failures to avoid repeating
     const recentFailures = this.extractRecentFailures(turns);
     if (recentFailures.length > 0) {
-      hints.push(`Recent failures — do NOT repeat the same approach:`);
+      hints.push(`Recent failures �?do NOT repeat the same approach:`);
       for (const f of recentFailures) {
-        hints.push(`  • ${f}`);
+        hints.push(`  �?${f}`);
       }
     }
 
@@ -745,10 +747,10 @@ export class AgentEngine implements IAgentEngine {
       "You are an expert software engineering assistant. Help users by reading, reasoning, and taking action.",
       "",
       "Workflow:",
-      "1. UNDERSTAND — Read the request. Ask clarifying questions if needed.",
-      "2. DECIDE — Does this need files/tools? General knowledge needs none.",
-      "3. ACT — Use the right tool. Read before editing. Plan before complex work.",
-      "4. VERIFY — Test or read back changes. Never assume correctness.",
+      "1. UNDERSTAND �?Read the request. Ask clarifying questions if needed.",
+      "2. DECIDE �?Does this need files/tools? General knowledge needs none.",
+      "3. ACT �?Use the right tool. Read before editing. Plan before complex work.",
+      "4. VERIFY �?Test or read back changes. Never assume correctness.",
       "",
       "Habits:",
       "- Prefer small, targeted changes over large rewrites.",
@@ -763,11 +765,11 @@ export class AgentEngine implements IAgentEngine {
       "",
       "### DECISION RULE",
       "Before calling any tool, ask: 'Does this task need files or code?'",
-      "- YES → use tools. NO (general knowledge, chat) → answer directly.",
+      "- YES �?use tools. NO (general knowledge, chat) �?answer directly.",
       "",
     ];
 
-    if (this.skills) {
+    if (this.opts.skills) {
       lines.push("### SKILL RULE (CRITICAL)");
       lines.push("If the user's task matches an available skill, call `skill` FIRST before any other tool.");
       lines.push("Skills contain specialized workflow guidance. Loading them first prevents mistakes.");
@@ -779,7 +781,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("");
     lines.push("**Sequential** (one step depends on the previous):");
     lines.push("  Use `spawn` to delegate sub-tasks one at a time. Each sub-agent's result informs the next.");
-    lines.push("  Example: 'Implement auth → Write tests → Run tests → Fix failures'");
+    lines.push("  Example: 'Implement auth �?Write tests �?Run tests �?Fix failures'");
     lines.push("");
     lines.push("**Parallel** (independent sub-tasks):");
     lines.push("  Use `spawn_multiple` to run sub-agents concurrently. Merge their outputs for synthesis.");
@@ -791,7 +793,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("  2. Spawn a tester/evaluator sub-agent to verify it (run tests, check quality).");
     lines.push("  3. If evaluation fails, use the feedback to spawn an improved version.");
     lines.push("  4. Repeat until the evaluation passes or max iterations reached.");
-    lines.push("  Do NOT give up after one failure — iterate with concrete feedback.");
+    lines.push("  Do NOT give up after one failure �?iterate with concrete feedback.");
     lines.push("");
 
     lines.push("### MEMORY PROTOCOL");
@@ -801,7 +803,7 @@ export class AgentEngine implements IAgentEngine {
     lines.push("When searching for files or knowledge, use `memory_search` with mode='files' or mode='memory'.");
     lines.push("");
 
-    if (this.memory) {
+    if (this.opts.memory) {
       lines.push("If you are unsure about a file path, `memory_search` can find files by description.");
       lines.push("If a read/edit fails with 'file not found', the path may have changed. Try `memory_search` to locate it.");
     }
@@ -810,15 +812,15 @@ export class AgentEngine implements IAgentEngine {
   }
 
   private async buildKnowledge(turns: ConversationTurn[]): Promise<string | undefined> {
-    if (!this.memory) return undefined;
+    if (!this.opts.memory) return undefined;
 
     const query = this.buildKnowledgeQuery(turns);
     if (!query.trim()) return undefined;
 
-    const maxResults = this.config.memory?.maxResults ?? 5;
+    const maxResults = this.opts.config.memory?.maxResults ?? 5;
 
     try {
-      const chunks = await this.memory.search(query, { maxResults });
+      const chunks = await this.opts.memory.search(query, { maxResults });
       if (chunks.length === 0) return undefined;
 
       const lines: string[] = [
@@ -837,7 +839,7 @@ export class AgentEngine implements IAgentEngine {
       }
       return lines.join("\n");
     } catch (err) {
-      this.logger.warn("Memory search failed", { error: String(err) });
+      this.opts.logger.warn("Memory search failed", { error: String(err) });
       return undefined;
     }
   }
@@ -888,7 +890,7 @@ export class AgentEngine implements IAgentEngine {
       lines.push("");
       lines.push("Recently accessed files (most recent first):");
       for (const f of ws.files.slice(0, 10)) {
-        lines.push(`  • ${f}`);
+        lines.push(`  �?${f}`);
       }
       if (ws.task) {
         lines.push("");
@@ -947,11 +949,11 @@ export class AgentEngine implements IAgentEngine {
     const toolNames = new Set(lastAssistant.toolCalls.map(tc => tc.name));
     if (toolNames.has("user_memory")) {
       nudge.turnsSinceMemoryNudge = 0;
-      this.logger.debug("Nudge: memory tool used, counter reset", { sessionId });
+      this.opts.logger.debug("Nudge: memory tool used, counter reset", { sessionId });
     }
     if (toolNames.has("skill_manage")) {
       nudge.toolItersSinceSkillNudge = 0;
-      this.logger.debug("Nudge: skill tool used, counter reset", { sessionId });
+      this.opts.logger.debug("Nudge: skill tool used, counter reset", { sessionId });
     }
   }
 
@@ -968,10 +970,10 @@ export class AgentEngine implements IAgentEngine {
     const mem = nudge.turnsSinceMemoryNudge >= nudge.memoryNudgeInterval;
     const skill = nudge.toolItersSinceSkillNudge >= nudge.skillNudgeInterval;
 
-    if (mem && this.tools.get("user_memory")) {
+    if (mem && this.opts.tools.get("user_memory")) {
       lines.push("💡 You have used many turns without saving anything to memory. If you learned something important about the user or project, consider calling `user_memory` with action='add'.");
     }
-    if (skill && this.tools.get("skill_manage")) {
+    if (skill && this.opts.tools.get("skill_manage")) {
       lines.push("💡 You have completed many tool iterations without creating a skill. If this workflow is reusable, consider calling `skill_manage` with action='create'.");
     }
 
@@ -1007,7 +1009,7 @@ export class AgentEngine implements IAgentEngine {
    * on an actionable user request.
    */
   private detectPlanningOnly(response: ILLMResponse, turns: ConversationTurn[]): boolean {
-    // 1. Has real tool calls (not just think/update_plan)? → NOT planning-only
+    // 1. Has real tool calls (not just think/update_plan)? �?NOT planning-only
     const realToolCalls = (response.toolCalls ?? []).filter(
       tc => tc.name !== "think" && tc.name !== "update_plan"
     );
@@ -1029,14 +1031,14 @@ export class AgentEngine implements IAgentEngine {
     );
     if (hasTakenAction) return false;
 
-    // 5. Assistant has text but no real tool calls on an actionable request → planning-only
+    // 5. Assistant has text but no real tool calls on an actionable request �?planning-only
     return true;
   }
 
   /** Heuristic: does this user request require tools to fulfill? */
   private isActionableRequest(text: string): boolean {
     const lower = text.toLowerCase();
-    // If it looks like casual chat or general knowledge → NOT actionable
+    // If it looks like casual chat or general knowledge �?NOT actionable
     const casualIndicators = [
       "what is", "what are", "how does", "why is", "explain", "tell me about",
       "hello", "hi ", "thanks", "thank you", "goodbye", "bye",
@@ -1067,7 +1069,7 @@ export class AgentEngine implements IAgentEngine {
       "",
       "DO NOT:",
       "- Restate or summarize the plan",
-      "- Say 'I will do X' — just do X",
+      "- Say 'I will do X' �?just do X",
       "- Ask for confirmation on obvious next steps",
       "",
       "DO:",
@@ -1086,15 +1088,15 @@ export class AgentEngine implements IAgentEngine {
     sessionId: string,
     result?: ToolResult,
   ): Promise<void> {
-    if (!this.toolHooks) return;
+    if (!this.opts.toolHooks) return;
     try {
-      if (phase === "beforeExecute" && this.toolHooks.beforeExecute) {
-        await this.toolHooks.beforeExecute({ call, sessionId });
-      } else if (phase === "afterExecute" && this.toolHooks.afterExecute) {
-        await this.toolHooks.afterExecute({ call, result, sessionId });
+      if (phase === "beforeExecute" && this.opts.toolHooks.beforeExecute) {
+        await this.opts.toolHooks.beforeExecute({ call, sessionId });
+      } else if (phase === "afterExecute" && this.opts.toolHooks.afterExecute) {
+        await this.opts.toolHooks.afterExecute({ call, result, sessionId });
       }
     } catch (err) {
-      this.logger.warn("Tool hook failed", { phase, tool: call.name, error: String(err) });
+      this.opts.logger.warn("Tool hook failed", { phase, tool: call.name, error: String(err) });
     }
   }
 
@@ -1161,7 +1163,7 @@ export class AgentEngine implements IAgentEngine {
   // ─── Plan Mode ───────────────────────────────────────────────────────────────
 
   private shouldUsePlan(toolCalls: ToolCall[], iteration: number, sessionId: SessionId): boolean {
-    const mode = this.config.planMode ?? "auto";
+    const mode = this.opts.config.planMode ?? "auto";
     if (mode === "off") return false;
     if (mode === "always") return true;
 
@@ -1197,8 +1199,8 @@ export class AgentEngine implements IAgentEngine {
 
     // Pre-execute: user-defined before hooks
     hooks.register("preExecute", async (ctx) => {
-      if (this.toolHooks?.beforeExecute) {
-        await this.toolHooks.beforeExecute({
+      if (this.opts.toolHooks?.beforeExecute) {
+        await this.opts.toolHooks.beforeExecute({
           call: { id: ctx.step.id, name: ctx.step.tool, arguments: ctx.step.args as Record<string, unknown> },
           sessionId,
         });
@@ -1207,8 +1209,8 @@ export class AgentEngine implements IAgentEngine {
 
     // Post-execute: user-defined after hooks (before working-set tracking)
     hooks.register("postExecute", async (ctx) => {
-      if (this.toolHooks?.afterExecute && ctx.result) {
-        await this.toolHooks.afterExecute({
+      if (this.opts.toolHooks?.afterExecute && ctx.result) {
+        await this.opts.toolHooks.afterExecute({
           call: { id: ctx.step.id, name: ctx.step.tool, arguments: ctx.step.args as Record<string, unknown> },
           result: { callId: ctx.step.id, output: ctx.result.output, isError: ctx.result.isError },
           sessionId,
@@ -1225,7 +1227,7 @@ export class AgentEngine implements IAgentEngine {
     });
 
     this.replanPolicy.reset();
-    const result = await this.planExecutor.execute(plan, this.tools, hooks, { sessionId });
+    const result = await this.planExecutor.execute(plan, this.opts.tools, hooks, { sessionId });
 
     // Check replan policy
     if (!result.success) {
@@ -1233,7 +1235,7 @@ export class AgentEngine implements IAgentEngine {
         if (node.status === "failed") {
           const trigger = this.replanPolicy.shouldReplan(node, result.dag);
           if (trigger) {
-            this.logger.warn("Plan step failed, replan triggered", {
+            this.opts.logger.warn("Plan step failed, replan triggered", {
               stepId,
               reason: trigger.reason,
             });
