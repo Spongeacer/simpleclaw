@@ -19,3 +19,6 @@ Thumbs.db
 # Test artifacts
 coverage/
 *.log
+tests/tool-usage-report.json
+tests/swe-bench-report.json
+tests/test-tool-usage-benchmark.json
