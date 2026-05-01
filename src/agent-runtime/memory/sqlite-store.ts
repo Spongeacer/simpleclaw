@@ -299,6 +299,11 @@ export class SqliteMemoryStore {
   }> {
     if (!this.db) return [];
     try {
+      // Escape FTS5 special characters: " * ( ) AND OR NOT NEAR
+      const safeQuery = query
+        .replace(/"/g, '""')
+        .replace(/[*()]/g, " ")
+        .replace(/\b(AND|OR|NOT|NEAR)\b/g, m => `"${m.toLowerCase()}"`);
       const stmt = this.db.prepare(
         `SELECT h.content, h.turn_id, h.role, h.timestamp, rank AS score
          FROM session_history_fts fts
@@ -307,7 +312,7 @@ export class SqliteMemoryStore {
          ORDER BY rank
          LIMIT ?`
       );
-      const rows = stmt.all(query, sessionId, maxResults) as Array<{
+      const rows = stmt.all(safeQuery, sessionId, maxResults) as Array<{
         content: string; turn_id: string; role: string; timestamp: number; score: number;
       }>;
       return rows.map(r => ({

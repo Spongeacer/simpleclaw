@@ -52,6 +52,9 @@ export class OpenAICompatibleClient implements ILLMClient {
       body.tool_choice = "auto";
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
     const res = await fetch(`${this.baseURL}/chat/completions`, {
       method: "POST",
       headers: {
@@ -59,7 +62,10 @@ export class OpenAICompatibleClient implements ILLMClient {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "unknown");
@@ -83,11 +89,20 @@ export class OpenAICompatibleClient implements ILLMClient {
     if (!choice) throw new Error("No completion choice returned");
 
     const msg = choice.message;
-    const toolCalls: ToolCall[] | undefined = msg.tool_calls?.map((tc) => ({
-      id: tc.id,
-      name: tc.function.name,
-      arguments: JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>,
-    }));
+    const toolCalls: ToolCall[] | undefined = msg.tool_calls?.map((tc) => {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>;
+      } catch {
+        // Fallback: treat raw string as single argument
+        args = { raw: tc.function.arguments || "" };
+      }
+      return {
+        id: tc.id,
+        name: tc.function.name,
+        arguments: args,
+      };
+    });
 
     const { text, reasoning } = this.extractReasoningAndText(msg as unknown as Record<string, unknown>);
 

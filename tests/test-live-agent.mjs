@@ -31,6 +31,11 @@ import { resolve } from 'path';
 import { tmpdir } from 'os';
 import { API_KEY, BASE_URL, MODEL } from './test-live-config.mjs';
 
+if (!API_KEY || API_KEY === 'placeholder') {
+  console.log('\n⏭️  Live agent test skipped: no API key configured (set OPENROUTER_API_KEY)');
+  process.exit(0);
+}
+
 function createRealClient() {
   return new OpenAICompatibleClient(
     { provider: 'openrouter', model: MODEL, temperature: 0 },

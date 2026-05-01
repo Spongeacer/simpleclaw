@@ -267,6 +267,11 @@ export class ContextCompactor {
     this.sessionSummaries.set(sessionId, summaries.slice(-maxLevels));
   }
 
+  /** Remove session data to prevent memory leaks. */
+  cleanupSession(sessionId: string): void {
+    this.sessionSummaries.delete(sessionId);
+  }
+
   private async compressSummary(summary: string, level: number): Promise<string> {
     const prompt = `Compress this session summary into an even shorter form (Level-${level} compression).
 Retain only: the goal, key decisions, file paths, and blockers. Remove implementation details and reasoning chains.

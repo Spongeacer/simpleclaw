@@ -811,6 +811,12 @@ export class AgentEngine implements IAgentEngine {
     }
   }
 
+  /** Clean up memory for a deleted session. Call when session is explicitly deleted. */
+  cleanupSession(sessionId: SessionId): void {
+    this.workingSets.delete(sessionId);
+    this.compactor.cleanupSession(sessionId);
+  }
+
   // ─── Planning-Only Detection & Correction ───────────────────────────────────
 
   /**
@@ -832,7 +838,16 @@ export class AgentEngine implements IAgentEngine {
     // 3. Is the user request actionable (requires tools)?
     if (!this.isActionableRequest(lastUser.content)) return false;
 
-    // 4. Assistant has text but no real tool calls on an actionable request → planning-only
+    // 4. Has the assistant already taken real action in this session?
+    //    If so, a text-only response is likely a summary, not planning-only.
+    const hasTakenAction = turns.some(
+      t => t.role === "assistant" && t.toolCalls?.some(
+        tc => tc.name !== "think" && tc.name !== "update_plan"
+      )
+    );
+    if (hasTakenAction) return false;
+
+    // 5. Assistant has text but no real tool calls on an actionable request → planning-only
     return true;
   }
 
@@ -973,10 +988,9 @@ export class AgentEngine implements IAgentEngine {
 
     // Also auto-activate on first iteration if complexity is high
     if (iteration === 0 && toolCalls.length > 0) {
-      // Simple heuristic: if we already have contextual hints about many tool calls,
-      // this session is likely complex
-      const totalRounds = (this.workingSets.size ?? 0) > 0 ? 1 : 0;
-      if (totalRounds > 0) return true;
+      const ws = this.workingSets.get(this.config.id);
+      const hasActiveTask = ws && (ws.task || ws.files.length > 0);
+      if (hasActiveTask) return true;
     }
 
     return false;
