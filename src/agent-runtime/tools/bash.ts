@@ -1,6 +1,14 @@
 /**
- * SimpleClaw — Bash Tool
- * Execute shell commands with timeout and output limits.
+ * SimpleClaw — Bash Tool (Linux environment)
+ * Execute a command in a true Linux bash environment.
+ *
+ * - Windows: Requires Docker. If Docker is unavailable, returns an error
+ *   directing the agent to use the 'shell' tool instead.
+ * - Linux/macOS: Uses native bash (falls back from Docker if needed).
+ *
+ * Use this when you need Linux-specific tools (awk, sed, grep pipelines,
+ * bash scripts, POSIX utilities). For simple cross-platform commands,
+ * prefer the 'shell' tool.
  */
 
 import type { ISandbox, ITool, IExecResult } from "../../core/interfaces.js";
@@ -9,14 +17,17 @@ export function createBashTool(sandbox: ISandbox): ITool {
   return {
     name: "bash",
     description:
-      "Execute a local shell command in the workspace (run tests, build, install deps, etc). " +
-      "NOT for fetching real-time data, web scraping, or external APIs — you do not have internet access for data retrieval. " +
-      "Commands timeout after 120 seconds. Output truncated at 10KB per stream. " +
-      "Prefer 'read' and 'edit' for file operations when possible.",
+      "Execute a command in a true Linux bash environment. " +
+      "On Windows this requires Docker. On Linux/macOS it uses native bash. " +
+      "Use this for Linux-specific tool chains: awk, sed, grep, find, xargs, " +
+      "bash scripts, POSIX utilities, or when you need pipe chains. " +
+      "For simple cross-platform commands (list files, cat file, env vars) " +
+      "prefer the 'shell' tool instead. " +
+      "Commands timeout after 120 seconds. Output truncated at 10KB per stream.",
     parameters: {
       type: "object",
       properties: {
-        command: { type: "string", description: "Shell command to execute" },
+        command: { type: "string", description: "Bash command to execute" },
         timeout: { type: "number", description: "Timeout in seconds (default 120, max 300)" },
       },
       required: ["command"],
@@ -28,7 +39,9 @@ export function createBashTool(sandbox: ISandbox): ITool {
         ? Math.min(Math.max(1, args.timeout), 300)
         : 120;
 
-      const result: IExecResult = await sandbox.exec(command, {
+      // Use execBash if available (Docker-first on Windows, native bash on Linux)
+      const execFn = sandbox.execBash ?? sandbox.exec;
+      const result: IExecResult = await execFn.call(sandbox, command, {
         timeoutMs: timeoutSec * 1000,
         maxOutputBytes: 10_000,
       });

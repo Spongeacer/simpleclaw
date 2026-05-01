@@ -1,121 +1,60 @@
 /**
  * Live Test Configuration — Shared model / API settings for all live tests.
  *
- * Automatically probes OpenRouter for an available free-tier model that
- * supports tool calling. Falls back through a hard-coded candidate list if
- * probing fails. Caches the resolved model so all live tests use the same one.
+ * Reads provider credentials and default model from ~/.simpleclaw/simpleclaw.json.
+ * Falls back to OPENROUTER_API_KEY environment variable for CI compatibility.
  *
- * If OPENROUTER_API_KEY is missing, tests SKIP and a placeholder model is
- * returned so imports don’t crash.
+ * If no provider key is found, tests SKIP gracefully.
  */
 
 import { readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { resolve } from 'path';
 
-async function loadProviderKey() {
+async function loadConfig() {
   // 1. Environment variable (CI / explicit override)
   if (process.env.OPENROUTER_API_KEY) {
-    return process.env.OPENROUTER_API_KEY;
+    return {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: 'https://openrouter.ai/api/v1',
+      model: process.env.OPENROUTER_MODEL || 'tencent/hy3-preview:free',
+    };
   }
-  // 2. User's simpleclaw.json providers section
+
+  // 2. User's simpleclaw.json
   try {
     const configPath = resolve(homedir(), '.simpleclaw', 'simpleclaw.json');
     const raw = await readFile(configPath, 'utf-8');
     const config = JSON.parse(raw);
-    const key = config.providers?.openrouter?.apiKey;
-    if (key && typeof key === 'string') {
-      return key;
+
+    // Use the default model's provider
+    const defaultModel = config.models?.default;
+    const providerName = defaultModel?.provider || 'openrouter';
+    const model = defaultModel?.model || 'tencent/hy3-preview:free';
+
+    const provider = config.providers?.[providerName];
+    if (provider?.apiKey && provider?.baseURL) {
+      return {
+        apiKey: provider.apiKey,
+        baseURL: provider.baseURL,
+        model,
+      };
     }
   } catch {
     // ignore
   }
-  return undefined;
+
+  return null;
 }
 
-const apiKey = await loadProviderKey();
-if (!apiKey) {
+const cfg = await loadConfig();
+if (!cfg) {
   throw new Error(
-    'No API key found. Set OPENROUTER_API_KEY environment variable or configure providers.openrouter.apiKey in ~/.simpleclaw/simpleclaw.json'
+    'No API provider configured. Set OPENROUTER_API_KEY environment variable ' +
+    'or configure providers in ~/.simpleclaw/simpleclaw.json'
   );
 }
-export const API_KEY = apiKey;
-export const BASE_URL = 'https://openrouter.ai/api/v1';
 
-// Free-tier candidates known (or believed) to support function calling.
-// Ordered by preference.  Add or reorder as the OpenRouter roster changes.
-const CANDIDATES = [
-  'tencent/hy3-preview:free',
-  'minimax/minimax-m2.5:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'google/gemma-3-4b-it:free',
-  'deepseek/deepseek-chat-v3.1:free',
-];
-
-async function loadUserModel() {
-  try {
-    const configPath = resolve(homedir(), '.simpleclaw', 'simpleclaw.json');
-    const raw = await readFile(configPath, 'utf-8');
-    const config = JSON.parse(raw);
-    return config.models?.default?.model ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** Send a minimal chat request to verify the model is actually usable (HTTP 200). */
-async function probeModel(model) {
-  try {
-    const resp = await fetch(`${BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-        'HTTP-Referer': 'https://simpleclaw.dev',
-        'X-Title': 'SimpleClaw Live Tests',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: 'Hi' }],
-        max_tokens: 1,
-      }),
-    });
-    // Only accept a clean 200.  404 = not found, 429 = rate limited,
-    // 400 = geo-blocked / unsupported — all mean "not usable right now".
-    return resp.status === 200;
-  } catch {
-    return false;
-  }
-}
-
-async function resolveModel() {
-  if (!API_KEY) {
-    return CANDIDATES[0];
-  }
-
-  // 1. Try known tool-calling-friendly candidates first
-  //    (User config may be a reasoning/chat model that handles read
-  //     but not multi-turn edit workflows.)
-  for (const model of CANDIDATES) {
-    const ok = await probeModel(model);
-    if (ok) {
-      return model;
-    }
-  }
-
-  // 2. Fall back to user's configured free-tier model
-  const userModel = await loadUserModel();
-  if (userModel && userModel.endsWith(':free')) {
-    const ok = await probeModel(userModel);
-    if (ok) {
-      return userModel;
-    }
-  }
-
-  console.warn(
-    `[live-config] No probed model responded cleanly — falling back to ${CANDIDATES[0]}`
-  );
-  return CANDIDATES[0];
-}
-
-export const MODEL = await resolveModel();
+export const API_KEY = cfg.apiKey;
+export const BASE_URL = cfg.baseURL;
+export const MODEL = cfg.model;

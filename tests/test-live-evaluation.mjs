@@ -484,10 +484,11 @@ async function run() {
   console.log(`\n  Overall: ${totalPassed}/${totalChecks} (${(overallRate * 100).toFixed(0)}%)`);
   console.log(`${'='.repeat(50)}\n`);
 
+  await new Promise(r => setTimeout(r, 200));
   process.exit(overallRate >= 0.7 ? 0 : 1);
 }
 
 run().catch(e => {
   console.error('Evaluation runner error:', e);
-  process.exit(1);
+  setTimeout(() => process.exit(1), 200);
 });

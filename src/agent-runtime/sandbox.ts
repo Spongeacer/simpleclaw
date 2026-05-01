@@ -64,6 +64,8 @@ export class DockerSandbox implements ISandbox {
   private guard: PathGuard;
   /** Per-file write lock queue. Keys are absolute paths. */
   private fileLocks = new Map<string, Promise<unknown>>();
+  private _dockerChecked = false;
+  private _dockerAvailable = false;
 
   constructor(
     private workspace: string,
@@ -134,6 +136,10 @@ export class DockerSandbox implements ISandbox {
     }
   }
 
+  /**
+   * Execute a command in the native shell of the current platform.
+   * Windows → PowerShell, Linux/macOS → sh.
+   */
   async exec(command: string, options: ExecOptions = {}): Promise<IExecResult> {
     if (this.config.backend === "none") {
       throw new Error("Sandbox backend is 'none'; shell execution disabled");
@@ -142,7 +148,7 @@ export class DockerSandbox implements ISandbox {
     const timeoutMs = options.timeoutMs ?? 120_000;
     const maxOutputBytes = options.maxOutputBytes ?? 10_000;
 
-    this.logger.info("Docker exec", { command, workspace: this.workspace, timeoutMs });
+    this.logger.info("Shell exec", { command, workspace: this.workspace, timeoutMs, platform: process.platform });
 
     const isDockerAvailable = await this.checkDocker();
     if (!isDockerAvailable) {
@@ -153,11 +159,68 @@ export class DockerSandbox implements ISandbox {
     return this.dockerSpawn(command, timeoutMs, maxOutputBytes);
   }
 
+  /**
+   * Execute a command in a true Linux bash environment.
+   * On Windows this requires Docker. If Docker is unavailable, throws an error.
+   * On Linux/macOS this falls back to native bash if Docker is unavailable.
+   */
+  async execBash(command: string, options: ExecOptions = {}): Promise<IExecResult> {
+    if (this.config.backend === "none") {
+      throw new Error("Sandbox backend is 'none'; shell execution disabled");
+    }
+
+    const timeoutMs = options.timeoutMs ?? 120_000;
+    const maxOutputBytes = options.maxOutputBytes ?? 10_000;
+
+    this.logger.info("Bash exec", { command, workspace: this.workspace, timeoutMs });
+
+    const isDockerAvailable = await this.checkDocker();
+    if (isDockerAvailable) {
+      return this.dockerSpawn(command, timeoutMs, maxOutputBytes);
+    }
+
+    if (process.platform === "win32") {
+      throw new Error(
+        "Docker is not available on this Windows host. " +
+        "The 'bash' tool requires a Linux environment. " +
+        "Use the 'shell' tool instead for cross-platform commands."
+      );
+    }
+
+    // Linux/macOS fallback: try native bash
+    this.logger.warn("Docker not available; falling back to native bash");
+    return this.directSpawn(command, timeoutMs, maxOutputBytes);
+  }
+
+  getPlatformInfo(): { platform: string; shell: string; availableCommands: string } {
+    if (process.platform === "win32") {
+      return {
+        platform: "Windows",
+        shell: "PowerShell",
+        availableCommands:
+          "Get-Content (cat), Get-ChildItem (ls), Select-String (grep), Measure-Object, " +
+          "Remove-Item (rm), Copy-Item (cp), Move-Item (mv), New-Item (touch), " +
+          "Write-Output (echo), Set-Location (cd). " +
+          "For Linux-specific tools (awk, sed, bash scripts) use the 'bash' tool instead.",
+      };
+    }
+    return {
+      platform: "Linux/macOS",
+      shell: "bash/sh",
+      availableCommands:
+        "ls, cat, grep, awk, sed, find, head, tail, wc, chmod, mkdir, rm, cp, mv, echo, cd.",
+    };
+  }
+
   private async checkDocker(): Promise<boolean> {
+    if (this._dockerChecked) return this._dockerAvailable;
+    this._dockerChecked = true;
     try {
       const { stdout } = await this.directSpawn("docker version", 10_000, 1_000);
-      return stdout.includes("Version:");
+      this._dockerAvailable = stdout.includes("Version:");
+      return this._dockerAvailable;
     } catch {
+      this._dockerAvailable = false;
       return false;
     }
   }

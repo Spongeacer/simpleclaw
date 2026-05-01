@@ -40,6 +40,10 @@ export interface ISandbox {
   /** @param expectedContent If provided, the write will atomically verify the file still contains this exact text before overwriting. Throws on mismatch. */
   writeFile(path: string, content: string, expectedContent?: string): Promise<void>;
   exec(command: string, options?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<IExecResult>;
+  /** Execute a command in a true Linux bash environment (Docker on Windows, native bash on Linux/macOS). */
+  execBash?(command: string, options?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<IExecResult>;
+  /** Return the current platform name for tool description purposes. */
+  getPlatformInfo?(): { platform: string; shell: string; availableCommands: string };
 }
 
 // ─── LLM ──────────────────────────────────────────────────────────────────────

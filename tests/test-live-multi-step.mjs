@@ -295,10 +295,11 @@ async function run() {
   }
 
   console.log(`\n${passed}/${tests.length} live multi-step reasoning tests passed`);
+  await new Promise(r => setTimeout(r, 200));
   process.exit(failed > 0 ? 1 : 0);
 }
 
 run().catch(e => {
   console.error('Live test runner error:', e);
-  process.exit(1);
+  setTimeout(() => process.exit(1), 200);
 });

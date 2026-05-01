@@ -200,14 +200,16 @@ async function run() {
   if (errors.length > 0) {
     console.log('\n❌ FAILURES:');
     for (const e of errors) console.log(`  - ${e}`);
+    await new Promise(r => setTimeout(r, 200));
     process.exit(1);
   }
 
   console.log('\n✅ Live crawler test passed');
+  await new Promise(r => setTimeout(r, 200));
   process.exit(0);
 }
 
 run().catch(e => {
   console.error('Test error:', e);
-  process.exit(1);
+  setTimeout(() => process.exit(1), 200);
 });

@@ -4,6 +4,7 @@
 
 export { createReadTool } from "./read.js";
 export { createEditTool } from "./edit.js";
+export { createShellTool } from "./shell.js";
 export { createBashTool } from "./bash.js";
 export { createThinkTool } from "./think.js";
 export { createGrepTool } from "./grep.js";
