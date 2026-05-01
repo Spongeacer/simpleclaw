@@ -1,0 +1,29 @@
+{
+  "name": "simpleclaw",
+  "version": "0.1.0",
+  "description": "Minimal, stateless AI agent runtime — a distilled OpenClaw",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "simpleclaw": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli/index.js",
+    "test": "node tests/run-all.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

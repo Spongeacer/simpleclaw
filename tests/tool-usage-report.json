@@ -1,0 +1,1918 @@
+{
+  "meta": {
+    "mode": "mock",
+    "model": "mock-bench",
+    "total_queries": 100,
+    "total_duration_ms": 238216,
+    "avg_duration_ms": 2382,
+    "total_tool_calls": 460
+  },
+  "summary": {
+    "correct": 64,
+    "over_call": 0,
+    "under_call": 23,
+    "mismatch": 13,
+    "partial": 0,
+    "error": 0,
+    "tool_call_rate": 4.6,
+    "rationality_score": 0.64
+  },
+  "category_breakdown": {
+    "chat": {
+      "total": 10,
+      "correct": 10,
+      "over_call": 0,
+      "under_call": 0,
+      "mismatch": 0,
+      "partial": 0,
+      "tool_call_rate": 0
+    },
+    "concept": {
+      "total": 10,
+      "correct": 10,
+      "over_call": 0,
+      "under_call": 0,
+      "mismatch": 0,
+      "partial": 0,
+      "tool_call_rate": 0
+    },
+    "read": {
+      "total": 10,
+      "correct": 8,
+      "over_call": 0,
+      "under_call": 2,
+      "mismatch": 0,
+      "partial": 0,
+      "tool_call_rate": 6
+    },
+    "edit": {
+      "total": 10,
+      "correct": 7,
+      "over_call": 0,
+      "under_call": 3,
+      "mismatch": 0,
+      "partial": 0,
+      "tool_call_rate": 7
+    },
+    "search": {
+      "total": 10,
+      "correct": 7,
+      "over_call": 0,
+      "under_call": 0,
+      "mismatch": 3,
+      "partial": 0,
+      "tool_call_rate": 8
+    },
+    "exec": {
+      "total": 10,
+      "correct": 6,
+      "over_call": 0,
+      "under_call": 2,
+      "mismatch": 2,
+      "partial": 0,
+      "tool_call_rate": 5.5
+    },
+    "multi_step": {
+      "total": 15,
+      "correct": 11,
+      "over_call": 0,
+      "under_call": 1,
+      "mismatch": 3,
+      "partial": 0,
+      "tool_call_rate": 9
+    },
+    "boundary": {
+      "total": 15,
+      "correct": 2,
+      "over_call": 0,
+      "under_call": 13,
+      "mismatch": 0,
+      "partial": 0,
+      "tool_call_rate": 0.33
+    },
+    "web": {
+      "total": 10,
+      "correct": 3,
+      "over_call": 0,
+      "under_call": 2,
+      "mismatch": 5,
+      "partial": 0,
+      "tool_call_rate": 5.5
+    }
+  },
+  "results": [
+    {
+      "id": "A01",
+      "category": "chat",
+      "query": "Hello! How are you doing today?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 22,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A02",
+      "category": "chat",
+      "query": "Good morning! What's the weather like?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A03",
+      "category": "chat",
+      "query": "Thanks for your help earlier.",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A04",
+      "category": "chat",
+      "query": "Nice to meet you!",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A05",
+      "category": "chat",
+      "query": "Tell me a joke.",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A06",
+      "category": "chat",
+      "query": "What do you think about AI?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A07",
+      "category": "chat",
+      "query": "Bye for now!",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A08",
+      "category": "chat",
+      "query": "Can you introduce yourself?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A09",
+      "category": "chat",
+      "query": "What's your favorite programming language?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "A10",
+      "category": "chat",
+      "query": "How was your day?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B01",
+      "category": "concept",
+      "query": "Explain what a closure is in JavaScript.",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B02",
+      "category": "concept",
+      "query": "What's the difference between REST and GraphQL?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B03",
+      "category": "concept",
+      "query": "How does garbage collection work in V8?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B04",
+      "category": "concept",
+      "query": "What are the SOLID principles?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B05",
+      "category": "concept",
+      "query": "Explain event loop in Node.js.",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B06",
+      "category": "concept",
+      "query": "When should I use a Map instead of an object in JavaScript?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B07",
+      "category": "concept",
+      "query": "What is memoization and when is it useful?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B08",
+      "category": "concept",
+      "query": "Explain dependency injection.",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B09",
+      "category": "concept",
+      "query": "What's the CAP theorem?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "B10",
+      "category": "concept",
+      "query": "Compare async/await with Promises.",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "C01",
+      "category": "read",
+      "query": "Read the file src/index.ts and tell me what it does.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 5,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "C02",
+      "category": "read",
+      "query": "Show me the contents of package.json.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls"
+      ],
+      "duration_ms": 6,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, ls, read, ls, read, ls, read, ls, read, ls",
+      "error": null
+    },
+    {
+      "id": "C03",
+      "category": "read",
+      "query": "What's in the README.md file?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "C04",
+      "category": "read",
+      "query": "Can you check the tsconfig.json settings?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "C05",
+      "category": "read",
+      "query": "Show me the first 50 lines of src/core/agent-engine.ts.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, ls, read, ls, read, ls, read, ls, read, ls",
+      "error": null
+    },
+    {
+      "id": "C06",
+      "category": "read",
+      "query": "What does the .env file contain?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "C07",
+      "category": "read",
+      "query": "Read tests/test-dag-engine.mjs and summarize the test cases.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash"
+      ],
+      "duration_ms": 16373,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, bash, read, bash, read, bash, read, bash, read, bash",
+      "error": null
+    },
+    {
+      "id": "C08",
+      "category": "read",
+      "query": "Show me the Dockerfile.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, ls, read, ls, read, ls, read, ls, read, ls",
+      "error": null
+    },
+    {
+      "id": "C09",
+      "category": "read",
+      "query": "What are the exports in src/core/index.ts?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "C10",
+      "category": "read",
+      "query": "Read docs/architecture.md.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "D01",
+      "category": "edit",
+      "query": "Add a console.log at the start of the main function in src/index.ts.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 5,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "D02",
+      "category": "edit",
+      "query": "Rename the variable 'foo' to 'config' in src/utils.ts.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected read, edit, but no tools called",
+      "error": null
+    },
+    {
+      "id": "D03",
+      "category": "edit",
+      "query": "Update the version in package.json to 2.0.0.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "D04",
+      "category": "edit",
+      "query": "Fix the typo 'recieve' to 'receive' in README.md.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "D05",
+      "category": "edit",
+      "query": "Add a new route '/health' to the Express app in src/server.ts.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "D06",
+      "category": "edit",
+      "query": "Remove the deprecated function 'oldHelper' from src/helpers.ts.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "D07",
+      "category": "edit",
+      "query": "Change the default port from 3000 to 8080 in src/config.ts.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected read, edit, but no tools called",
+      "error": null
+    },
+    {
+      "id": "D08",
+      "category": "edit",
+      "query": "Add JSDoc to the main exported function in src/api.ts.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "D09",
+      "category": "edit",
+      "query": "Refactor the duplicate error handling in src/handlers.ts into a helper function.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected read, edit, but no tools called",
+      "error": null
+    },
+    {
+      "id": "D10",
+      "category": "edit",
+      "query": "Update the copyright year to 2026 in LICENSE.",
+      "expected_tools": [
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "E01",
+      "category": "search",
+      "query": "Find all files that import 'react'.",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 7,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, grep, grep, grep, grep",
+      "error": null
+    },
+    {
+      "id": "E02",
+      "category": "search",
+      "query": "Search for all TODO comments in the codebase.",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search"
+      ],
+      "duration_ms": 869,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, web_search, grep, web_search, grep, web_search, grep, web_search, grep, web_search",
+      "error": null
+    },
+    {
+      "id": "E03",
+      "category": "search",
+      "query": "List all TypeScript files in the src directory.",
+      "expected_tools": [
+        "glob"
+      ],
+      "called_tools": [
+        "ls",
+        "ls",
+        "ls",
+        "ls",
+        "ls"
+      ],
+      "duration_ms": 4,
+      "verdict": "mismatch",
+      "reason": "Expected glob, but called ls, ls, ls, ls, ls",
+      "error": null
+    },
+    {
+      "id": "E04",
+      "category": "search",
+      "query": "Find where the function 'validateUser' is defined.",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 7,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, grep, grep, grep, grep",
+      "error": null
+    },
+    {
+      "id": "E05",
+      "category": "search",
+      "query": "Show me the directory structure of the project.",
+      "expected_tools": [
+        "ls"
+      ],
+      "called_tools": [
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "read",
+        "ls"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, ls, read, ls, read, ls, read, ls, read, ls",
+      "error": null
+    },
+    {
+      "id": "E06",
+      "category": "search",
+      "query": "Find all test files.",
+      "expected_tools": [
+        "glob"
+      ],
+      "called_tools": [
+        "grep",
+        "bash",
+        "grep",
+        "bash",
+        "grep",
+        "bash",
+        "grep",
+        "bash",
+        "grep",
+        "bash"
+      ],
+      "duration_ms": 16187,
+      "verdict": "mismatch",
+      "reason": "Expected glob, but called grep, bash, grep, bash, grep, bash, grep, bash, grep, bash",
+      "error": null
+    },
+    {
+      "id": "E07",
+      "category": "search",
+      "query": "Search for 'deprecated' in the codebase.",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search"
+      ],
+      "duration_ms": 831,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, web_search, grep, web_search, grep, web_search, grep, web_search, grep, web_search",
+      "error": null
+    },
+    {
+      "id": "E08",
+      "category": "search",
+      "query": "List all JSON config files.",
+      "expected_tools": [
+        "glob"
+      ],
+      "called_tools": [
+        "ls",
+        "ls",
+        "ls",
+        "ls",
+        "ls"
+      ],
+      "duration_ms": 4,
+      "verdict": "mismatch",
+      "reason": "Expected glob, but called ls, ls, ls, ls, ls",
+      "error": null
+    },
+    {
+      "id": "E09",
+      "category": "search",
+      "query": "Find files that contain both 'auth' and 'token'.",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 7,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, grep, grep, grep, grep",
+      "error": null
+    },
+    {
+      "id": "E10",
+      "category": "search",
+      "query": "Show me what's in the tests/ directory.",
+      "expected_tools": [
+        "ls"
+      ],
+      "called_tools": [
+        "read",
+        "ls",
+        "bash",
+        "read",
+        "ls",
+        "bash",
+        "read",
+        "ls",
+        "bash",
+        "read",
+        "ls",
+        "bash",
+        "read",
+        "ls",
+        "bash"
+      ],
+      "duration_ms": 16293,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, ls, bash, read, ls, bash, read, ls, bash, read, ls, bash, read, ls, bash",
+      "error": null
+    },
+    {
+      "id": "F01",
+      "category": "exec",
+      "query": "Run the test suite.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "bash",
+        "bash",
+        "bash",
+        "bash",
+        "bash"
+      ],
+      "duration_ms": 16374,
+      "verdict": "correct",
+      "reason": "Called expected tools: bash, bash, bash, bash, bash",
+      "error": null
+    },
+    {
+      "id": "F02",
+      "category": "exec",
+      "query": "Check if the build passes.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash"
+      ],
+      "duration_ms": 16917,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, bash, read, bash, read, bash, read, bash, read, bash",
+      "error": null
+    },
+    {
+      "id": "F03",
+      "category": "exec",
+      "query": "Install the dependencies.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "bash",
+        "bash",
+        "bash",
+        "bash",
+        "bash"
+      ],
+      "duration_ms": 17257,
+      "verdict": "correct",
+      "reason": "Called expected tools: bash, bash, bash, bash, bash",
+      "error": null
+    },
+    {
+      "id": "F04",
+      "category": "exec",
+      "query": "Run the linter.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "bash",
+        "bash",
+        "bash",
+        "bash",
+        "bash"
+      ],
+      "duration_ms": 16858,
+      "verdict": "correct",
+      "reason": "Called expected tools: bash, bash, bash, bash, bash",
+      "error": null
+    },
+    {
+      "id": "F05",
+      "category": "exec",
+      "query": "Format the code with prettier.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "F06",
+      "category": "exec",
+      "query": "Start the dev server.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "F07",
+      "category": "exec",
+      "query": "Run type checking.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash"
+      ],
+      "duration_ms": 17062,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, bash, read, bash, read, bash, read, bash, read, bash",
+      "error": null
+    },
+    {
+      "id": "F08",
+      "category": "exec",
+      "query": "Check git status.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 4,
+      "verdict": "mismatch",
+      "reason": "Expected bash, but called read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "F09",
+      "category": "exec",
+      "query": "Show the last 10 git commits.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "ls",
+        "ls",
+        "ls",
+        "ls",
+        "ls"
+      ],
+      "duration_ms": 3,
+      "verdict": "mismatch",
+      "reason": "Expected bash, but called ls, ls, ls, ls, ls",
+      "error": null
+    },
+    {
+      "id": "F10",
+      "category": "exec",
+      "query": "Check which Node.js version is installed.",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash",
+        "read",
+        "bash"
+      ],
+      "duration_ms": 16911,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, bash, read, bash, read, bash, read, bash, read, bash",
+      "error": null
+    },
+    {
+      "id": "G01",
+      "category": "multi_step",
+      "query": "Find the function that handles user authentication, then add input validation to it.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep"
+      ],
+      "duration_ms": 10,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, grep, read, edit, grep, read, edit, grep, read, edit, grep, read, edit, grep",
+      "error": null
+    },
+    {
+      "id": "G02",
+      "category": "multi_step",
+      "query": "Create a new utility file src/math.ts with add, subtract, multiply, divide functions, then write tests for them.",
+      "expected_tools": [
+        "ls",
+        "write",
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash"
+      ],
+      "duration_ms": 16636,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, bash, read, edit, bash, read, edit, bash, read, edit, bash, read, edit, bash",
+      "error": null
+    },
+    {
+      "id": "G03",
+      "category": "multi_step",
+      "query": "Find all console.log statements in the codebase and remove them.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep",
+        "read",
+        "edit",
+        "grep"
+      ],
+      "duration_ms": 7,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, grep, read, edit, grep, read, edit, grep, read, edit, grep, read, edit, grep",
+      "error": null
+    },
+    {
+      "id": "G04",
+      "category": "multi_step",
+      "query": "Refactor the database connection code to use a connection pool. First find the current implementation.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 7,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, grep, grep, grep, grep",
+      "error": null
+    },
+    {
+      "id": "G05",
+      "category": "multi_step",
+      "query": "Add error handling middleware to the Express app. First check how the app is set up.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "G06",
+      "category": "multi_step",
+      "query": "Migrate the project from CommonJS to ESM. Check package.json and tsconfig first.",
+      "expected_tools": [
+        "read",
+        "edit",
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 2,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "G07",
+      "category": "multi_step",
+      "query": "Add a GitHub Actions CI workflow. Check if .github/workflows exists first.",
+      "expected_tools": [
+        "ls",
+        "write"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 3,
+      "verdict": "mismatch",
+      "reason": "Expected ls, write, but called read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "G08",
+      "category": "multi_step",
+      "query": "Update all dependencies to their latest versions and fix any breaking changes.",
+      "expected_tools": [
+        "read",
+        "bash",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash"
+      ],
+      "duration_ms": 16958,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, bash, read, edit, bash, read, edit, bash, read, edit, bash, read, edit, bash",
+      "error": null
+    },
+    {
+      "id": "G09",
+      "category": "multi_step",
+      "query": "Extract the validation logic from src/routes.ts into a separate src/validators.ts file.",
+      "expected_tools": [
+        "read",
+        "edit",
+        "write"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected read, edit, write, but no tools called",
+      "error": null
+    },
+    {
+      "id": "G10",
+      "category": "multi_step",
+      "query": "Find where API rate limiting is configured, then increase the limit from 100 to 500 requests per minute.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 8,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, grep, grep, grep, grep",
+      "error": null
+    },
+    {
+      "id": "G11",
+      "category": "multi_step",
+      "query": "Set up Docker for this project. Check if Dockerfile already exists, then create one if needed.",
+      "expected_tools": [
+        "ls",
+        "write",
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "duration_ms": 3,
+      "verdict": "mismatch",
+      "reason": "Expected ls, write, bash, but called read, read, read, read, read",
+      "error": null
+    },
+    {
+      "id": "G12",
+      "category": "multi_step",
+      "query": "Add TypeScript strict mode and fix all resulting type errors.",
+      "expected_tools": [
+        "read",
+        "edit",
+        "bash"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 4,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "G13",
+      "category": "multi_step",
+      "query": "Implement JWT authentication. Check the existing auth code first, then add JWT handling.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "G14",
+      "category": "multi_step",
+      "query": "Create a new endpoint for user profile updates. Check the existing routes first.",
+      "expected_tools": [
+        "grep",
+        "read",
+        "edit"
+      ],
+      "called_tools": [
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit",
+        "read",
+        "edit"
+      ],
+      "duration_ms": 3,
+      "verdict": "correct",
+      "reason": "Called expected tools: read, edit, read, edit, read, edit, read, edit, read, edit",
+      "error": null
+    },
+    {
+      "id": "G15",
+      "category": "multi_step",
+      "query": "Document all public API endpoints in an OpenAPI spec. First list all route files.",
+      "expected_tools": [
+        "glob",
+        "read",
+        "write"
+      ],
+      "called_tools": [
+        "ls",
+        "ls",
+        "ls",
+        "ls",
+        "ls"
+      ],
+      "duration_ms": 3,
+      "verdict": "mismatch",
+      "reason": "Expected glob, read, write, but called ls, ls, ls, ls, ls",
+      "error": null
+    },
+    {
+      "id": "H01",
+      "category": "boundary",
+      "query": "What does this project do?",
+      "expected_tools": [],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "correct",
+      "reason": "No tools expected, none used",
+      "error": null
+    },
+    {
+      "id": "H02",
+      "category": "boundary",
+      "query": "Is there a database schema defined somewhere?",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected grep, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H03",
+      "category": "boundary",
+      "query": "What's the current status of the project?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H04",
+      "category": "boundary",
+      "query": "Are there any security issues I should know about?",
+      "expected_tools": [
+        "grep"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected grep, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H05",
+      "category": "boundary",
+      "query": "Summarize the project architecture.",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H06",
+      "category": "boundary",
+      "query": "Who wrote this code?",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H07",
+      "category": "boundary",
+      "query": "When was the last release?",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H08",
+      "category": "boundary",
+      "query": "Is this project using any deprecated packages?",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H09",
+      "category": "boundary",
+      "query": "What's the test coverage like?",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [
+        "bash",
+        "bash",
+        "bash",
+        "bash",
+        "bash"
+      ],
+      "duration_ms": 16786,
+      "verdict": "correct",
+      "reason": "Called expected tools: bash, bash, bash, bash, bash",
+      "error": null
+    },
+    {
+      "id": "H10",
+      "category": "boundary",
+      "query": "Are there any uncommitted changes?",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H11",
+      "category": "boundary",
+      "query": "How many lines of code are in this project?",
+      "expected_tools": [
+        "bash"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected bash, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H12",
+      "category": "boundary",
+      "query": "What dependencies does this project have?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H13",
+      "category": "boundary",
+      "query": "Is TypeScript configured strictly?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H14",
+      "category": "boundary",
+      "query": "Does this project have CI/CD set up?",
+      "expected_tools": [
+        "ls"
+      ],
+      "called_tools": [],
+      "duration_ms": 0,
+      "verdict": "under-call",
+      "reason": "Expected ls, but no tools called",
+      "error": null
+    },
+    {
+      "id": "H15",
+      "category": "boundary",
+      "query": "What's the license of this project?",
+      "expected_tools": [
+        "read"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected read, but no tools called",
+      "error": null
+    },
+    {
+      "id": "I01",
+      "category": "web",
+      "query": "What are the latest features in React 19?",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [
+        "bash",
+        "bash",
+        "bash",
+        "bash",
+        "bash"
+      ],
+      "duration_ms": 16260,
+      "verdict": "mismatch",
+      "reason": "Expected web_search, but called bash, bash, bash, bash, bash",
+      "error": null
+    },
+    {
+      "id": "I02",
+      "category": "web",
+      "query": "Search for the best practices for Node.js error handling in 2025.",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search"
+      ],
+      "duration_ms": 880,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, web_search, grep, web_search, grep, web_search, grep, web_search, grep, web_search",
+      "error": null
+    },
+    {
+      "id": "I03",
+      "category": "web",
+      "query": "Fetch the content of https://nodejs.org/api/fs.html and summarize the file system API.",
+      "expected_tools": [
+        "web_fetch"
+      ],
+      "called_tools": [
+        "web_search",
+        "web_search",
+        "web_search",
+        "web_search",
+        "web_search"
+      ],
+      "duration_ms": 731,
+      "verdict": "mismatch",
+      "reason": "Expected web_fetch, but called web_search, web_search, web_search, web_search, web_search",
+      "error": null
+    },
+    {
+      "id": "I04",
+      "category": "web",
+      "query": "What's the current version of TypeScript?",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected web_search, but no tools called",
+      "error": null
+    },
+    {
+      "id": "I05",
+      "category": "web",
+      "query": "Find the documentation for Zod schema validation.",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 6,
+      "verdict": "mismatch",
+      "reason": "Expected web_search, but called grep, grep, grep, grep, grep",
+      "error": null
+    },
+    {
+      "id": "I06",
+      "category": "web",
+      "query": "Look up the OpenAI API pricing.",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [
+        "web_search",
+        "web_search",
+        "web_search",
+        "web_search",
+        "web_search"
+      ],
+      "duration_ms": 763,
+      "verdict": "correct",
+      "reason": "Called expected tools: web_search, web_search, web_search, web_search, web_search",
+      "error": null
+    },
+    {
+      "id": "I07",
+      "category": "web",
+      "query": "Search for recent security vulnerabilities in Express.js.",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search",
+        "grep",
+        "web_search"
+      ],
+      "duration_ms": 770,
+      "verdict": "correct",
+      "reason": "Called expected tools: grep, web_search, grep, web_search, grep, web_search, grep, web_search, grep, web_search",
+      "error": null
+    },
+    {
+      "id": "I08",
+      "category": "web",
+      "query": "What are the breaking changes in Vite 6?",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [],
+      "duration_ms": 1,
+      "verdict": "under-call",
+      "reason": "Expected web_search, but no tools called",
+      "error": null
+    },
+    {
+      "id": "I09",
+      "category": "web",
+      "query": "Fetch https://github.com/nodejs/node/releases and tell me about the latest release.",
+      "expected_tools": [
+        "web_fetch"
+      ],
+      "called_tools": [
+        "bash",
+        "web_search",
+        "bash",
+        "web_search",
+        "bash",
+        "web_search",
+        "bash",
+        "web_search",
+        "bash",
+        "web_search"
+      ],
+      "duration_ms": 16293,
+      "verdict": "mismatch",
+      "reason": "Expected web_fetch, but called bash, web_search, bash, web_search, bash, web_search, bash, web_search, bash, web_search",
+      "error": null
+    },
+    {
+      "id": "I10",
+      "category": "web",
+      "query": "Find the npm page for the 'zod' package and tell me its download stats.",
+      "expected_tools": [
+        "web_search"
+      ],
+      "called_tools": [
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep"
+      ],
+      "duration_ms": 7,
+      "verdict": "mismatch",
+      "reason": "Expected web_search, but called grep, grep, grep, grep, grep",
+      "error": null
+    }
+  ]
+}

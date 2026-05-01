@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleClaw</title>
+  <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+  <header>
+    <div class="left">
+      <h1>🦞 SimpleClaw</h1>
+      <span id="connBadge" class="badge disconnected">Offline</span>
+      <span id="sessBadge" class="badge session" style="display:none"></span>
+    </div>
+    <div class="right">
+      <input type="text" id="wsUrl" value="ws://127.0.0.1:18789" placeholder="ws://host:port" style="width:160px">
+      <input type="text" id="tokenInput" placeholder="Token" style="width:100px">
+      <button id="btnConnect">Connect</button>
+      <button id="btnDisconnect" class="secondary" disabled>Disconnect</button>
+    </div>
+  </header>
+
+  <div class="chat-container">
+    <div id="chatLog"></div>
+
+    <div class="input-area">
+      <textarea id="messageInput" placeholder="Connect to gateway to start..." disabled></textarea>
+      <button id="btnSend" disabled>Send</button>
+    </div>
+  </div>
+
+  <div class="events-panel" id="eventsPanel">
+    <div class="events-header" id="eventsHeader">
+      <h3>▼ Raw Events</h3>
+      <div class="actions">
+        <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
+        <button class="secondary" id="btnClearEvents">Clear</button>
+      </div>
+    </div>
+    <pre id="rawEvents"></pre>
+  </div>
+
+  <script src="app.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# SimpleClaw sensitive files
+keys.json
+.simpleclaw/keys.json
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test artifacts
+coverage/
+*.log
