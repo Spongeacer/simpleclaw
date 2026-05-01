@@ -4,7 +4,7 @@
  */
 
 import { spawn } from "child_process";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, rename, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { resolve, isAbsolute, dirname, sep, join } from "path";
 import type { SandboxConfig } from "../core/types.js";
@@ -62,6 +62,8 @@ export class PathGuard {
 
 export class DockerSandbox implements ISandbox {
   private guard: PathGuard;
+  /** Per-file write lock queue. Keys are absolute paths. */
+  private fileLocks = new Map<string, Promise<void>>();
 
   constructor(
     private workspace: string,
@@ -79,10 +81,57 @@ export class DockerSandbox implements ISandbox {
     return readFile(path, "utf-8");
   }
 
-  async writeFile(rawPath: string, content: string): Promise<void> {
+  async writeFile(rawPath: string, content: string, expectedContent?: string): Promise<void> {
     const path = this.guard.assertSafe(rawPath, this.workspace);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content, "utf-8");
+    await this.withWriteLock(path, async () => {
+      // Optimistic concurrency check inside the write lock
+      if (expectedContent !== undefined) {
+        const current = await readFile(path, "utf-8").catch(() => "");
+        if (current !== expectedContent) {
+          throw new Error(
+            `File "${rawPath}" was modified by another process while editing. ` +
+            `Please re-read the file with the 'read' tool and try your edit again.`
+          );
+        }
+      }
+      await mkdir(dirname(path), { recursive: true });
+      // Atomic write: write to temp file, then rename
+      const tempPath = `${path}.tmp.${process.pid}.${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        await writeFile(tempPath, content, "utf-8");
+        await rename(tempPath, path);
+      } catch (err) {
+        // Clean up temp file on failure
+        try { await unlink(tempPath); } catch {}
+        throw err;
+      }
+    });
+  }
+
+  /**
+   * Acquire an exclusive write lock for a file path.
+   * Concurrent writes to the same path are serialized.
+   */
+  private async withWriteLock<T>(path: string, fn: () => Promise<T>): Promise<T> {
+    // Wait for any existing lock on this path
+    while (this.fileLocks.has(path)) {
+      const existing = this.fileLocks.get(path)!;
+      try { await existing; } catch { /* ignore previous lock errors */ }
+      // Loop because another lock may have been acquired in the gap
+    }
+
+    let release!: () => void;
+    const lockPromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.fileLocks.set(path, lockPromise);
+
+    try {
+      return await fn();
+    } finally {
+      this.fileLocks.delete(path);
+      release();
+    }
   }
 
   async exec(command: string, options: ExecOptions = {}): Promise<IExecResult> {

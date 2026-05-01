@@ -37,7 +37,8 @@ export interface IExecResult {
 
 export interface ISandbox {
   readFile(path: string): Promise<string>;
-  writeFile(path: string, content: string): Promise<void>;
+  /** @param expectedContent If provided, the write will atomically verify the file still contains this exact text before overwriting. Throws on mismatch. */
+  writeFile(path: string, content: string, expectedContent?: string): Promise<void>;
   exec(command: string): Promise<IExecResult>;
 }
 

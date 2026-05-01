@@ -156,7 +156,10 @@ export function createEditTool(
       }
 
       const replaced = match.before + newStr + match.after;
-      await sandbox.writeFile(path, replaced);
+
+      // Atomic write with optimistic concurrency check:
+      // the sandbox verifies the file still contains `content` inside the write lock.
+      await sandbox.writeFile(path, replaced, content);
 
       return `Edited ${path} (${strategyName} match).\n` +
         `--- old (${oldStr.split("\n").length} lines) ---\n${oldStr.slice(0, 200)}${oldStr.length > 200 ? "..." : ""}\n` +
