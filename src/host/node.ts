@@ -20,6 +20,7 @@ import {
   createMemorySearchTool,
   createMemorySaveTool,
   createUserMemoryTool,
+  createSkillManageTool,
   createWebSearchTool,
   createWebFetchTool,
   createGlobTool,
@@ -100,6 +101,10 @@ export async function startNodeHost(options: NodeHostOptions): Promise<{ close: 
     logger,
   );
   tools.register(createUserMemoryTool(userMemory, logger));
+
+  // Register skill management tool
+  const userSkillsDir = (process.env.SIMPLECLAW_HOME ?? `${process.env.HOME || process.env.USERPROFILE || "."}/.simpleclaw`) + "/skills";
+  tools.register(createSkillManageTool({ skillsDir: userSkillsDir, logger }));
 
   // Assemble Agent Pool for multi-agent collaboration
   const engineFactory = new AgentEngineFactory(store, approval, logger, undefined, userMemory);

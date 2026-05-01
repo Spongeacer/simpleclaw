@@ -449,6 +449,7 @@ export class AgentEngine implements IAgentEngine {
     const parts: string[] = [];
     parts.push(this.buildBasePersona());
     parts.push(this.buildToolGuidance());
+    parts.push(this.buildSkillCreationGuidance());
     parts.push(this.buildWorkspaceContext());
     const memSection = await this.buildUserMemorySection();
     if (memSection) parts.push(memSection);
@@ -522,6 +523,23 @@ export class AgentEngine implements IAgentEngine {
       "5. If a step fails, pause and use `think` to revise the plan.",
       "",
       "Do NOT rush into edits. A good plan prevents mistakes.",
+    ].join("\n");
+  }
+
+  private buildSkillCreationGuidance(): string {
+    if (!this.tools.get("skill_manage")) return "";
+    return [
+      "=== SKILL CREATION ===",
+      "",
+      "After completing a complex task (5+ tool calls) or fixing a non-trivial bug,",
+      "consider calling `skill_manage` with action='create' to save the workflow.",
+      "This helps future sessions reuse successful patterns.",
+      "",
+      "A good skill includes:",
+      "- Procedure: step-by-step instructions",
+      "- Pitfalls: common mistakes and how to avoid them",
+      "- Verification: how to confirm the task was done correctly",
+      "",
     ].join("\n");
   }
 
