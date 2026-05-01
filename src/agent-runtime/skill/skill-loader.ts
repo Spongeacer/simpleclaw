@@ -39,6 +39,16 @@ export async function loadAllSkills(options: SkillLoadOptions): Promise<SkillInf
   for (const { dir, source } of dirs) {
     const found = await scanSkillSource({ dir, source, limits, logger });
     for (const skill of found) {
+      const existing = seenNames.get(skill.name);
+      if (existing) {
+        logger.warn("Skill overridden by higher-priority source", {
+          name: skill.name,
+          previousSource: existing.source,
+          newSource: source,
+          previousPath: existing.location,
+          newPath: skill.location,
+        });
+      }
       // Later sources override earlier ones by name
       seenNames.set(skill.name, skill);
     }
