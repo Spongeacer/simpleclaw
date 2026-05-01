@@ -392,8 +392,9 @@ export class AgentEngine implements IAgentEngine {
       parts.push(this.instructions);
       // Persist flag immediately so it survives compaction and reloads
       if (session) {
-        session.metadata = { ...session.metadata, instructionsInjected: true };
-        await this.store.update(sessionId, { metadata: session.metadata });
+        await this.store.update(sessionId, {
+          metadata: { ...session.metadata, instructionsInjected: true },
+        });
       }
     }
 

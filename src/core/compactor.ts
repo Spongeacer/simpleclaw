@@ -188,6 +188,11 @@ export class ContextCompactor {
       toSummarize: split.toSummarize.length,
     });
 
+    if (split.toSummarize.length === 0) {
+      // All turns preserved (groups too large to split); no actual compression occurred
+      return { compacted: split.preserved, didCompact: false, summary: null };
+    }
+
     const anchored = this.extractAnchoredFacts(split.toSummarize);
     const summary = await this.summarize(split.toSummarize, anchored, config.summaryMaxLength);
 
@@ -242,7 +247,9 @@ export class ContextCompactor {
     const { preserved, toSummarize } = this.splitRespectingToolPairs(turns, config.preserveTurns);
 
     if (toSummarize.length === 0) {
-      return { compacted: preserved, didCompact: true, summary: hierarchyParts.join("\n\n") || null };
+      // No new turns to summarize; only historical summaries exist
+      const historicalSummary = hierarchyParts.join("\n\n") || null;
+      return { compacted: preserved, didCompact: historicalSummary !== null, summary: historicalSummary };
     }
 
     const anchored = this.extractAnchoredFacts(toSummarize);
