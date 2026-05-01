@@ -25,6 +25,7 @@ export interface CompactorConfig {
 }
 
 export const DEFAULT_COMPACTOR_CONFIG: CompactorConfig = {
+  thresholdPercent: 0.75,  // compact when context reaches 75% of window
   preserveTurns: 4,
   summaryMaxLength: 4000,
   hierarchical: true,
@@ -302,6 +303,11 @@ Output a terse bullet list. Max 800 chars.`;
   /**
    * Resolve the effective threshold from config.
    * Priority: thresholdTokens > thresholdPercent * contextWindow > contextWindow * 0.6 > 6000
+   *
+   * With the default thresholdPercent (0.75), compaction triggers when the
+   * estimated context size reaches 75% of the model's context window. This
+   * leaves headroom for the model's response tokens (maxTokens) and any
+   * estimation inaccuracy from our character-based heuristic.
    */
   private resolveThreshold(config: CompactorConfig, contextWindow?: number): number {
     if (config.thresholdTokens) {

@@ -4,6 +4,9 @@ All notable changes to SimpleClaw.
 
 ## [Unreleased]
 
+### Changed
+- **Context compaction threshold now defaults to ratio-based** (`thresholdPercent: 0.75`) instead of an absolute fallback of 6000 tokens. When `contextWindow` is not explicitly configured, it falls back to `128_000` tokens (modern model standard). This means compaction triggers at ~96k tokens by default, leaving 25% headroom for the model's response — consistent with Claude Code's proportional approach
+
 ## [0.2.0] — 2026-05-01
 
 ### Security & Concurrency

@@ -99,7 +99,7 @@ export class AgentEngine implements IAgentEngine {
         {
           systemPromptText: this.stableSystemPrompt ?? undefined,
           toolSchemas: this.tools.schema(),
-          contextWindow: this.config.model.contextWindow,
+          contextWindow: this.config.model.contextWindow ?? 128_000,
           sessionId,
           memory: this.memory,
         },
