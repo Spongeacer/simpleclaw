@@ -138,6 +138,59 @@ export interface IToolRegistry {
   execute(call: ToolCall): Promise<ToolResult>;
 }
 
+// ─── Context Engine (pluggable context management) ────────────────────────────
+
+/**
+ * IContextEngine defines the pluggable contract for context management.
+ *
+ * Inspired by OpenClaw's ContextEngine: rather than hard-coding compaction
+ * logic inside AgentEngine, context assembly, compression, and ingestion are
+ * delegated to a swappable engine. This lets SimpleClaw adopt external
+ * memory systems, RAG pipelines, or custom summarization strategies without
+ * changing the core agent loop.
+ */
+export interface IContextEngine {
+  readonly info: { id: string; name: string };
+
+  /**
+   * Assemble model context under a token budget.
+   *
+   * The engine may compact, reorder, or augment turns. It must NOT mutate
+   * the input array — return a new array for message building.
+   */
+  assemble(params: {
+    turns: ConversationTurn[];
+    config?: Record<string, unknown> | object;
+    tokenBudget?: number;
+    modelId?: string;
+    availableTools?: string[];
+    prompt?: string;
+    systemPromptText?: string;
+    toolSchemas?: IToolSchema[];
+    contextWindow?: number;
+    sessionId?: string;
+    memory?: IMemoryIndex;
+  }): Promise<{
+    turns: ConversationTurn[];
+    didCompact: boolean;
+    summary: string | null;
+    estimatedTokens: number;
+  }>;
+
+  /** Record actual token usage for calibration (optional). */
+  recordUsage?(
+    actualTokens: number,
+    turns: ConversationTurn[],
+    options?: { systemPromptText?: string; toolSchemas?: IToolSchema[] },
+  ): void;
+
+  /** Ingest a completed turn into the engine's store (optional). */
+  ingest?(params: { sessionId: string; turn: ConversationTurn }): Promise<void>;
+
+  /** Clean up per-session resources to prevent memory leaks (optional). */
+  cleanupSession?(sessionId: string): void;
+}
+
 // ─── Chat Events ──────────────────────────────────────────────────────────────
 
 export type IChatEvent =

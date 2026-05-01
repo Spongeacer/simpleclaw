@@ -15,6 +15,7 @@ import type {
   IAgentEngine,
   IApprovalGate,
   IChatEvent,
+  IContextEngine,
   ILLMClient,
   ILLMMessage,
   ILLMResponse,
@@ -33,7 +34,7 @@ interface SessionWorkingSet {
 }
 
 export class AgentEngine implements IAgentEngine {
-  private compactor: ContextCompactor;
+  private contextEngine: IContextEngine;
   private workingSets = new Map<SessionId, SessionWorkingSet>();
   private stableSystemPrompt: string | null = null;
   private replanPolicy = new ReplanPolicy();
@@ -50,8 +51,9 @@ export class AgentEngine implements IAgentEngine {
     private instructions?: string,
     private skills?: string,
     private toolHooks?: IToolCallHooks,
+    contextEngine?: IContextEngine,
   ) {
-    this.compactor = new ContextCompactor(llm, logger);
+    this.contextEngine = contextEngine ?? new ContextCompactor(llm, logger);
   }
 
   /**
@@ -82,6 +84,7 @@ export class AgentEngine implements IAgentEngine {
 
     const maxIterations = this.config.maxIterations ?? 10;
     let answered = false;
+    const preTurnCount = session.turns.length; // track new turns for context-engine ingestion
 
     // Ensure stable system prompt is built once
     if (!this.stableSystemPrompt) {
@@ -93,17 +96,18 @@ export class AgentEngine implements IAgentEngine {
       const compactionCfg = this.config.compaction
         ? { ...DEFAULT_COMPACTOR_CONFIG, ...this.config.compaction }
         : DEFAULT_COMPACTOR_CONFIG;
-      const { compacted: compactedTurns, didCompact, summary } = await this.compactor.compact(
-        session.turns,
-        compactionCfg,
-        {
-          systemPromptText: this.stableSystemPrompt ?? undefined,
-          toolSchemas: this.tools.schema(),
-          contextWindow: this.config.model.contextWindow ?? 128_000,
-          sessionId,
-          memory: this.memory,
-        },
-      );
+      const { turns: compactedTurns, didCompact, summary } = await this.contextEngine.assemble({
+        turns: session.turns,
+        config: compactionCfg,
+        systemPromptText: this.stableSystemPrompt ?? undefined,
+        toolSchemas: this.tools.schema(),
+        contextWindow: this.config.model.contextWindow ?? 128_000,
+        sessionId,
+        memory: this.memory,
+        modelId: this.config.model.model,
+        availableTools: this.tools.schema().map((t) => t.name),
+        prompt: message,
+      });
       if (didCompact) {
         yield { type: "thinking", text: "Context compacted. Resuming from summary..." };
       }
@@ -117,7 +121,7 @@ export class AgentEngine implements IAgentEngine {
         session.tokenCount += response.usage.promptTokens + response.usage.completionTokens;
 
         // Feed actual usage back to compactor for calibration
-        this.compactor.recordUsage(response.usage.promptTokens, session.turns, {
+        this.contextEngine.recordUsage?.(response.usage.promptTokens, session.turns, {
           systemPromptText: this.stableSystemPrompt ?? undefined,
           toolSchemas: this.tools.schema(),
         });
@@ -281,6 +285,18 @@ export class AgentEngine implements IAgentEngine {
 
     if (!answered) {
       yield { type: "error", code: "MAX_ITERATIONS", message: "Agent reached the maximum number of tool iterations without a final answer." };
+    }
+
+    // Ingest new turns into the context engine (e.g. for external memory systems)
+    if (this.contextEngine.ingest) {
+      const newTurns = session.turns.slice(preTurnCount);
+      for (const turn of newTurns) {
+        try {
+          await this.contextEngine.ingest({ sessionId, turn });
+        } catch (err) {
+          this.logger.warn("Context engine ingest failed", { sessionId, error: String(err) });
+        }
+      }
     }
 
     await this.store.update(sessionId, {
@@ -815,7 +831,7 @@ export class AgentEngine implements IAgentEngine {
   /** Clean up memory for a deleted session. Call when session is explicitly deleted. */
   cleanupSession(sessionId: SessionId): void {
     this.workingSets.delete(sessionId);
-    this.compactor.cleanupSession(sessionId);
+    this.contextEngine.cleanupSession?.(sessionId);
   }
 
   // ─── Planning-Only Detection & Correction ───────────────────────────────────

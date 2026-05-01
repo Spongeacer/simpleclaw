@@ -7,6 +7,11 @@ All notable changes to SimpleClaw.
 ### Changed
 - **Context compaction threshold now defaults to ratio-based** (`thresholdPercent: 0.75`) instead of an absolute fallback of 6000 tokens. When `contextWindow` is not explicitly configured, it falls back to `128_000` tokens (modern model standard). This means compaction triggers at ~96k tokens by default, leaving 25% headroom for the model's response — consistent with Claude Code's proportional approach
 
+### Architecture
+- **Pluggable `IContextEngine` interface** (`interfaces.ts`) — extracts `assemble()`, `ingest()`, `recordUsage()`, `cleanupSession()` into a swappable contract. `ContextCompactor` now implements `IContextEngine`. `AgentEngine` accepts an optional `contextEngine` parameter; when omitted it falls back to the default `ContextCompactor`. This mirrors OpenClaw's ContextEngine design and allows third-party memory/RAG engines to plug in without touching the agent loop
+- **`assemble()` receives richer context** — `modelId`, `availableTools`, and `prompt` are now passed to the context engine so compaction strategies can adapt per model (e.g. code models retain more tool results, chat models retain more user turns)
+- **`ingest()` hook** — after each turn, new `ConversationTurn`s are fed to the context engine's `ingest()` method (if implemented). Failures are logged as warnings and never block the main loop
+
 ## [0.2.0] — 2026-05-01
 
 ### Security & Concurrency

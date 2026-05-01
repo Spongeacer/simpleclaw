@@ -10,7 +10,7 @@
  *   Tier 3: (not yet) Session-memory substitution.
  */
 
-import type { ILLMClient, ILogger, IToolSchema } from "./interfaces.js";
+import type { IContextEngine, ILLMClient, ILogger, IToolSchema } from "./interfaces.js";
 import type { ConversationTurn } from "./types.js";
 
 export interface CompactorConfig {
@@ -66,9 +66,16 @@ export interface CompactOptions {
   contextWindow?: number;
   sessionId?: string;
   memory?: import("./interfaces.js").IMemoryIndex;
+  /** Current model identifier so the engine can adapt strategy per model. */
+  modelId?: string;
+  /** Tool names available for this run so the engine can align compaction with tool access. */
+  availableTools?: string[];
+  /** The incoming user prompt for this turn (useful for retrieval-oriented engines). */
+  prompt?: string;
 }
 
-export class ContextCompactor {
+export class ContextCompactor implements IContextEngine {
+  readonly info = { id: "simpleclaw-context", name: "SimpleClaw Context Compactor" };
   /** Tracks estimated vs actual prompt tokens to calibrate our heuristic. */
   private tokenCalibration = {
     totalEstimated: 0,
@@ -278,6 +285,49 @@ export class ContextCompactor {
   /** Remove session data to prevent memory leaks. */
   cleanupSession(sessionId: string): void {
     this.sessionSummaries.delete(sessionId);
+  }
+
+  // ─── IContextEngine implementation ──────────────────────────────────────────
+
+  /**
+   * IContextEngine.assemble — delegates to compact() and enriches the result
+   * with token estimates. This lets AgentEngine treat compaction as a generic
+   * context-assembly step, matching OpenClaw's design.
+   */
+  async assemble(params: Parameters<IContextEngine["assemble"]>[0]): Promise<{
+    turns: ConversationTurn[];
+    didCompact: boolean;
+    summary: string | null;
+    estimatedTokens: number;
+  }> {
+    const config = (params.config ?? DEFAULT_COMPACTOR_CONFIG) as CompactorConfig;
+    const compactOptions: CompactOptions = {
+      systemPromptText: params.systemPromptText,
+      toolSchemas: params.toolSchemas,
+      contextWindow: params.contextWindow,
+      sessionId: params.sessionId,
+      memory: params.memory,
+      modelId: params.modelId,
+      availableTools: params.availableTools,
+      prompt: params.prompt,
+    };
+    const result = await this.compact(params.turns, config, compactOptions);
+    const estimatedTokens = this.estimateTokens(result.compacted, compactOptions);
+    return {
+      turns: result.compacted,
+      didCompact: result.didCompact,
+      summary: result.summary,
+      estimatedTokens,
+    };
+  }
+
+  /**
+   * IContextEngine.ingest — no-op for the default compactor.
+   * Third-party engines can override this to persist turns into their own store.
+   */
+  async ingest(params: { sessionId: string; turn: ConversationTurn }): Promise<void> {
+    // Default compactor is stateless; nothing to persist.
+    void params;
   }
 
   private async compressSummary(summary: string, level: number): Promise<string> {
