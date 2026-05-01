@@ -24,7 +24,8 @@ export class NodeModuleResolver implements PluginResolver {
     } catch (e) {
       logger.error(`Failed to load plugin "${name}"`, { pkgName, error: String(e) });
       throw new Error(
-        `Plugin "${name}" not found. Install it with: npm install ${pkgName}`
+        `Plugin "${name}" not found. Install it with: npm install ${pkgName}`,
+        { cause: e }
       );
     }
   }

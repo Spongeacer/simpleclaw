@@ -88,7 +88,7 @@ async function main() {
       }, null, 2) + "\n", "utf-8");
       // Restrict permissions on Unix (owner read/write only)
       if (process.platform !== "win32") {
-        try { chmodSync(secretsPath, 0o600); } catch {}
+        try { chmodSync(secretsPath, 0o600); } catch { /* permission change not critical on this platform */ }
       }
     }
 

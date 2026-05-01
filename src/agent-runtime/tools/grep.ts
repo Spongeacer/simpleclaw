@@ -36,7 +36,7 @@ export function createGrepTool(_sandbox: ISandbox, workspace: string): ITool {
       try {
         regex = new RegExp(pattern, "g");
       } catch (e) {
-        throw new Error(`Invalid regex pattern: ${pattern}`);
+        throw new Error(`Invalid regex pattern: ${pattern}`, { cause: e });
       }
 
       const results: { file: string; line: number; text: string }[] = [];

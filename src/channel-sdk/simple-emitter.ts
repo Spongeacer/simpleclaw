@@ -21,7 +21,7 @@ export class SimpleEmitter {
     const handlers = this.handlers.get(event);
     if (!handlers) return;
     for (const h of handlers) {
-      try { h(...args); } catch {}
+      try { h(...args); } catch { /* handler errors are intentionally ignored */ }
     }
   }
 

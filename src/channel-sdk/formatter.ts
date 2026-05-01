@@ -5,7 +5,7 @@
 
 export class MessageFormatter {
   static escapeMarkdown(text: string): string {
-    return text.replace(/([*_`\[\]()])/g, "\\$1");
+    return text.replace(/([*_`[\]()])/g, "\\$1");
   }
 
   static truncate(text: string, maxLength: number): string {

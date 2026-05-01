@@ -513,20 +513,23 @@ export class AgentEngine implements IAgentEngine {
     lines.push("");
     lines.push("=== CORE RULES ===");
     lines.push("");
-    let ruleNum = 1;
+    const rules: string[] = [];
     if (this.config.planMode !== "off") {
-      lines.push(`${ruleNum++}. When you need multiple tools, output ALL of them at once. Independent tools will run in parallel.`);
+      rules.push("When you need multiple tools, output ALL of them at once. Independent tools will run in parallel.");
     }
-    lines.push(`${ruleNum++}. Read BEFORE editing. Use offset/limit for large files.`);
+    rules.push("Read BEFORE editing. Use offset/limit for large files.");
     if (toolNames.has("bash")) {
-      lines.push(`${ruleNum++}. bash is for local ops only (tests, builds). No web scraping.`);
+      rules.push("bash is for local ops only (tests, builds). No web scraping.");
     }
     if (toolNames.has("think")) {
-      lines.push(`${ruleNum++}. Use think before multi-step work.`);
+      rules.push("Use think before multi-step work.");
     }
-    lines.push(`${ruleNum++}. If stuck after 2 attempts, explain the problem to the user.`);
-    lines.push(`${ruleNum++}. NEVER print, echo, or expose environment variables that contain credentials (tokens, passwords, API keys).`);
-    lines.push(`${ruleNum++}. If a tool returns no useful results after 2 attempts (e.g. web_search empty), stop trying that approach and answer from your training knowledge or explain the limitation.`);
+    rules.push("If stuck after 2 attempts, explain the problem to the user.");
+    rules.push("NEVER print, echo, or expose environment variables that contain credentials (tokens, passwords, API keys).");
+    rules.push("If a tool returns no useful results after 2 attempts (e.g. web_search empty), stop trying that approach and answer from your training knowledge or explain the limitation.");
+    for (let i = 0; i < rules.length; i++) {
+      lines.push(`${i + 1}. ${rules[i]}`);
+    }
     lines.push("");
     lines.push("Do NOT use tools for general knowledge questions or casual chat.");
     lines.push("");

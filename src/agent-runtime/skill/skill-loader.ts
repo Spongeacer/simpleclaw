@@ -123,7 +123,7 @@ async function scanSkillSource(options: ScanOptions): Promise<SkillInfo[]> {
   }
   const rootReal = rootCheck.path!;
 
-  let entries: string[] = [];
+  let entries: string[];
   try {
     const s = await stat(dir);
     if (!s.isDirectory()) return [];
@@ -344,7 +344,7 @@ function parseYamlLike(text: string): Record<string, unknown> {
     if (colonIdx === -1) continue;
 
     const key = line.slice(0, colonIdx).trim();
-    let value = line.slice(colonIdx + 1).trim();
+    const value = line.slice(colonIdx + 1).trim();
 
     if (!value) {
       // Might be a list starting next line

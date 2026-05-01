@@ -95,7 +95,7 @@ export class OpenAICompatibleClient implements ILLMClient {
 
     const msg = choice.message;
     const toolCalls: ToolCall[] | undefined = msg.tool_calls?.map((tc) => {
-      let args: Record<string, unknown> = {};
+      let args: Record<string, unknown>;
       try {
         args = JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>;
       } catch {

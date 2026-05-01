@@ -102,7 +102,7 @@ export class DockerSandbox implements ISandbox {
         await rename(tempPath, path);
       } catch (err) {
         // Clean up temp file on failure
-        try { await unlink(tempPath); } catch {}
+        try { await unlink(tempPath); } catch { /* ignore cleanup errors */ }
         throw err;
       }
     });
@@ -313,9 +313,9 @@ export class DockerSandbox implements ISandbox {
     if (process.platform === "win32") {
       spawn("taskkill", ["/pid", String(pid), "/f", "/t"], { windowsHide: true });
     } else {
-      try { process.kill(-pid, "SIGTERM"); } catch {}
+      try { process.kill(-pid, "SIGTERM"); } catch { /* ignore kill errors */ }
       setTimeout(() => {
-        try { process.kill(-pid, "SIGKILL"); } catch {}
+        try { process.kill(-pid, "SIGKILL"); } catch { /* ignore kill errors */ }
       }, 3000);
     }
   }

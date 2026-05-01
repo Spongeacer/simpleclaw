@@ -215,7 +215,7 @@ export class Gateway {
             return { sessionId, agentId, taskId: task.taskId };
           }
           // Fallback: fire-and-forget only when no task queue is available
-          (async () => {
+          void (async () => {
             try {
               for await (const _ of this.engine.chat(sessionId, initialMessage)) {
                 /* discard background stream */
