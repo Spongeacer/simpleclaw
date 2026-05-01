@@ -12,6 +12,23 @@ All notable changes to SimpleClaw.
 - **`assemble()` receives richer context** — `modelId`, `availableTools`, and `prompt` are now passed to the context engine so compaction strategies can adapt per model (e.g. code models retain more tool results, chat models retain more user turns)
 - **`ingest()` hook** — after each turn, new `ConversationTurn`s are fed to the context engine's `ingest()` method (if implemented). Failures are logged as warnings and never block the main loop
 
+### Bug Fixes (Comprehensive Audit)
+- **CRITICAL** `sandbox.ts` — replaced broken check-then-act async write lock with promise-chain serialization. Two concurrent callers could previously both pass the while-loop before either set the lock, causing interleaved writes (`withWriteLock()`)
+- **HIGH** `gateway/session-store.ts` — SQLite `update()` now wrapped in `BEGIN/COMMIT/ROLLBACK` transaction, eliminating lost-update race conditions. Added `PRAGMA journal_mode = WAL;` for better concurrency and crash safety
+- **HIGH** `gateway/server.ts` — `SESSIONS_CREATE` with `initialMessage` now enqueues via `taskQueue` instead of unawaited fire-and-forget `engine.chat()`, preventing race with subsequent `CHAT_SEND` on the same session
+- **HIGH** `gateway/server.ts` — `TASKS_LIST` `status` parameter now validated at runtime instead of `as any` cast
+- **MEDIUM** `core/agent-engine.ts` — `shouldUsePlan()` fixed to look up `workingSets` by `sessionId` instead of `config.id` (was always returning `undefined`, breaking working-set-based plan activation)
+- **MEDIUM** `agent-runtime/providers/openai-compatible.ts` — fetch timeout now cleaned up with `try/finally` to prevent timer leak on network errors
+- **MEDIUM** `agent-runtime/providers/openai-compatible.ts` — added guard `data.choices.length === 0` before accessing `[0]` to prevent crash on malformed API response
+- **MEDIUM** `gateway/session-store.ts` — `hydrate()` now wraps `JSON.parse` in try/catch for both `turns` and `metadata`, gracefully falling back to empty array/undefined on corrupted rows
+- **MEDIUM** `agent-runtime/memory/sqlite-store.ts` — added WAL mode and wrapped `archiveTurns()` in a transaction to prevent inconsistent state on crash
+- **MEDIUM** `core/notification-bus.ts` — `publish()` now deletes empty handler Sets from `subs` Map to prevent minor memory leak
+- **MEDIUM** `agent-runtime/agent-engine-factory.ts` — now accepts and passes through optional `contextEngine` to sub-agents
+- **LOW** `core/interfaces.ts` — `ISandbox.exec()` signature now includes optional `options` parameter (matches `DockerSandbox` implementation)
+- **LOW** `agent-runtime/tools/bash.ts` — removed `sandbox as any` cast; now uses properly typed `ISandbox`
+- **LOW** `agent-runtime/agent-pool.ts` — replaced two `ev as any` casts with type-safe `extractEventText()` helper
+- **LOW** `agent-runtime/plan/executor.ts` — replaced `resolvedArgs.get(stepId)!` non-null assertion with explicit null check and descriptive error
+
 ## [0.2.0] — 2026-05-01
 
 ### Security & Concurrency

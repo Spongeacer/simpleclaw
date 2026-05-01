@@ -63,7 +63,7 @@ export class PathGuard {
 export class DockerSandbox implements ISandbox {
   private guard: PathGuard;
   /** Per-file write lock queue. Keys are absolute paths. */
-  private fileLocks = new Map<string, Promise<void>>();
+  private fileLocks = new Map<string, Promise<unknown>>();
 
   constructor(
     private workspace: string,
@@ -110,27 +110,27 @@ export class DockerSandbox implements ISandbox {
 
   /**
    * Acquire an exclusive write lock for a file path.
-   * Concurrent writes to the same path are serialized.
+   * Concurrent writes to the same path are serialized via a promise chain.
+   *
+   * Previous implementation had a check-then-act race: two callers could both
+   * pass the while-loop before either set the lock. This chain-based approach
+   * guarantees serial execution because each new caller chains onto the
+   * previous lock promise atomically (no await between check and set).
    */
   private async withWriteLock<T>(path: string, fn: () => Promise<T>): Promise<T> {
-    // Wait for any existing lock on this path
-    while (this.fileLocks.has(path)) {
-      const existing = this.fileLocks.get(path)!;
-      try { await existing; } catch { /* ignore previous lock errors */ }
-      // Loop because another lock may have been acquired in the gap
-    }
-
-    let release!: () => void;
-    const lockPromise = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.fileLocks.set(path, lockPromise);
-
+    const previous = this.fileLocks.get(path);
+    const current = (async () => {
+      if (previous) await previous.catch(() => {});
+      return fn();
+    })();
+    this.fileLocks.set(path, current);
     try {
-      return await fn();
+      return await current;
     } finally {
-      this.fileLocks.delete(path);
-      release();
+      // Only delete if we're still the current lock (not overwritten by a later one)
+      if (this.fileLocks.get(path) === current) {
+        this.fileLocks.delete(path);
+      }
     }
   }
 

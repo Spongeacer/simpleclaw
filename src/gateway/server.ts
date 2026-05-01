@@ -187,7 +187,10 @@ export class Gateway {
       case GatewayMethods.TASKS_LIST: {
         if (!this.taskQueue) throw new Error("Task queue not configured");
         const { sessionId, status } = req.params as { sessionId?: string; status?: string };
-        return this.taskQueue.list({ sessionId, status: status as any });
+        const validStatus = status && ["queued", "running", "completed", "failed", "cancelled"].includes(status)
+          ? status as import("../core/types.js").TaskStatus
+          : undefined;
+        return this.taskQueue.list({ sessionId, status: validStatus });
       }
 
       case GatewayMethods.SESSIONS_CREATE: {
@@ -205,6 +208,13 @@ export class Gateway {
           tokenCount: 0,
         });
         if (initialMessage) {
+          // Enqueue as a background task instead of unawaited fire-and-forget
+          // to avoid racing with a subsequent CHAT_SEND for the same session.
+          if (this.taskQueue) {
+            const task = await this.taskQueue.enqueue({ sessionId, agentId, message: initialMessage });
+            return { sessionId, agentId, taskId: task.taskId };
+          }
+          // Fallback: fire-and-forget only when no task queue is available
           (async () => {
             try {
               for await (const _ of this.engine.chat(sessionId, initialMessage)) {

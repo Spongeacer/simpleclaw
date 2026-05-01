@@ -45,6 +45,8 @@ export class SqliteMemoryStore {
   private initSchema(): void {
     if (!this.db) return;
 
+    this.db.exec(`PRAGMA journal_mode = WAL;`);
+
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS files (
         path TEXT PRIMARY KEY,
@@ -266,27 +268,34 @@ export class SqliteMemoryStore {
   }>): void {
     if (!this.db || turns.length === 0) return;
 
-    const insertStmt = this.db.prepare(
-      `INSERT INTO session_history (session_id, turn_id, role, content, tool_calls, reasoning, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    );
-    const ftsStmt = this.db.prepare(
-      `INSERT INTO session_history_fts (content, session_id, turn_id, role)
-       VALUES (?, ?, ?, ?)`
-    );
-
-    for (const turn of turns) {
-      const toolCallsJson = turn.toolCalls ? JSON.stringify(turn.toolCalls) : null;
-      insertStmt.run(
-        sessionId,
-        turn.id,
-        turn.role,
-        turn.content,
-        toolCallsJson,
-        turn.reasoning ?? null,
-        turn.timestamp.getTime()
+    this.db.exec("BEGIN");
+    try {
+      const insertStmt = this.db.prepare(
+        `INSERT INTO session_history (session_id, turn_id, role, content, tool_calls, reasoning, timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
       );
-      ftsStmt.run(turn.content, sessionId, turn.id, turn.role);
+      const ftsStmt = this.db.prepare(
+        `INSERT INTO session_history_fts (content, session_id, turn_id, role)
+         VALUES (?, ?, ?, ?)`
+      );
+
+      for (const turn of turns) {
+        const toolCallsJson = turn.toolCalls ? JSON.stringify(turn.toolCalls) : null;
+        insertStmt.run(
+          sessionId,
+          turn.id,
+          turn.role,
+          turn.content,
+          toolCallsJson,
+          turn.reasoning ?? null,
+          turn.timestamp.getTime()
+        );
+        ftsStmt.run(turn.content, sessionId, turn.id, turn.role);
+      }
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
     }
   }
 

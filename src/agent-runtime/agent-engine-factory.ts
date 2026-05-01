@@ -8,6 +8,7 @@ import type {
   IAgentEngine,
   IAgentEngineFactory,
   IApprovalGate,
+  IContextEngine,
   ILLMClient,
   ILogger,
   ISessionStore,
@@ -20,9 +21,10 @@ export class AgentEngineFactory implements IAgentEngineFactory {
     private store: ISessionStore,
     private approval: IApprovalGate,
     private logger: ILogger,
+    private contextEngine?: IContextEngine,
   ) {}
 
   create(config: AgentConfig, llm: ILLMClient, tools: IToolRegistry): IAgentEngine {
-    return new AgentEngine(config, this.store, llm, tools, this.approval, this.logger);
+    return new AgentEngine(config, this.store, llm, tools, this.approval, this.logger, undefined, undefined, undefined, undefined, this.contextEngine);
   }
 }

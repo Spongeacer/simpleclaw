@@ -219,7 +219,7 @@ export class AgentPool implements IAgentPool {
         agentId,
         sessionId,
         result: this.formatErrorResult(sessionId, msg),
-        events: events.map(ev => ({ type: ev.type, text: (ev as any).text ?? (ev as any).result?.output })),
+        events: events.map(ev => ({ type: ev.type, text: extractEventText(ev) })),
       };
     }
 
@@ -229,7 +229,7 @@ export class AgentPool implements IAgentPool {
       agentId,
       sessionId,
       result: this.formatResult(sessionId, events),
-      events: events.map(ev => ({ type: ev.type, text: (ev as any).text ?? (ev as any).result?.output })),
+      events: events.map(ev => ({ type: ev.type, text: extractEventText(ev) })),
     };
   }
 
@@ -339,4 +339,18 @@ export class AgentPool implements IAgentPool {
     lines.push("\n</parallel_results>");
     return lines.join("\n");
   }
+}
+
+/** Safely extract display text from a chat event without `as any`. */
+function extractEventText(ev: IChatEvent): string | undefined {
+  if (ev.type === "text" || ev.type === "thinking") {
+    return ev.text;
+  }
+  if (ev.type === "error") {
+    return ev.message;
+  }
+  if (ev.type === "tool_result") {
+    return ev.result.output;
+  }
+  return undefined;
 }

@@ -39,7 +39,7 @@ export interface ISandbox {
   readFile(path: string): Promise<string>;
   /** @param expectedContent If provided, the write will atomically verify the file still contains this exact text before overwriting. Throws on mismatch. */
   writeFile(path: string, content: string, expectedContent?: string): Promise<void>;
-  exec(command: string): Promise<IExecResult>;
+  exec(command: string, options?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<IExecResult>;
 }
 
 // ─── LLM ──────────────────────────────────────────────────────────────────────

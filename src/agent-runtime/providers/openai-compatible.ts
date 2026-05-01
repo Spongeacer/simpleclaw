@@ -55,17 +55,20 @@ export class OpenAICompatibleClient implements ILLMClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120_000);
 
-    const res = await fetch(`${this.baseURL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "unknown");
@@ -85,8 +88,10 @@ export class OpenAICompatibleClient implements ILLMClient {
       usage?: { prompt_tokens: number; completion_tokens: number };
     };
 
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error("No completion choices returned from API");
+    }
     const choice = data.choices[0];
-    if (!choice) throw new Error("No completion choice returned");
 
     const msg = choice.message;
     const toolCalls: ToolCall[] | undefined = msg.tool_calls?.map((tc) => {

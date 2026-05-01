@@ -52,6 +52,7 @@ export class SQLiteSessionStore implements ISessionStore {
   }
 
   private initSchema(): void {
+    this.db.exec(`PRAGMA journal_mode = WAL;`);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         session_id TEXT PRIMARY KEY,
@@ -96,25 +97,35 @@ export class SQLiteSessionStore implements ISessionStore {
   }
 
   async update(sessionId: SessionId, patch: Partial<Omit<ISessionState, "sessionId" | "createdAt">>): Promise<void> {
-    const existing = await this.get(sessionId);
-    if (!existing) throw new Error(`Session not found: ${sessionId}`);
+    this.db.exec("BEGIN");
+    try {
+      const existing = await this.get(sessionId);
+      if (!existing) {
+        this.db.exec("ROLLBACK");
+        throw new Error(`Session not found: ${sessionId}`);
+      }
 
-    const merged: ISessionState = { ...existing, ...patch, updatedAt: new Date() };
-    const stmt = this.db.prepare(
-      `UPDATE sessions
-       SET agent_id = ?, channel_id = ?, parent_session_id = ?, turns = ?, token_count = ?, metadata = ?, updated_at = ?
-       WHERE session_id = ?`
-    );
-    stmt.run(
-      merged.agentId,
-      merged.channelId ?? null,
-      merged.parentSessionId ?? null,
-      JSON.stringify(merged.turns),
-      merged.tokenCount,
-      merged.metadata ? JSON.stringify(merged.metadata) : null,
-      merged.updatedAt.toISOString(),
-      sessionId
-    );
+      const merged: ISessionState = { ...existing, ...patch, updatedAt: new Date() };
+      const stmt = this.db.prepare(
+        `UPDATE sessions
+         SET agent_id = ?, channel_id = ?, parent_session_id = ?, turns = ?, token_count = ?, metadata = ?, updated_at = ?
+         WHERE session_id = ?`
+      );
+      stmt.run(
+        merged.agentId,
+        merged.channelId ?? null,
+        merged.parentSessionId ?? null,
+        JSON.stringify(merged.turns),
+        merged.tokenCount,
+        merged.metadata ? JSON.stringify(merged.metadata) : null,
+        merged.updatedAt.toISOString(),
+        sessionId
+      );
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
   }
 
   async delete(sessionId: SessionId): Promise<void> {
@@ -154,14 +165,28 @@ interface RawSessionRow {
 }
 
 function hydrate(row: RawSessionRow): ISessionState {
+  let turns: ISessionState["turns"] = [];
+  try {
+    turns = JSON.parse(row.turns);
+  } catch {
+    // corrupted turns column — fallback to empty array
+  }
+  let metadata: ISessionState["metadata"] = undefined;
+  if (row.metadata) {
+    try {
+      metadata = JSON.parse(row.metadata);
+    } catch {
+      // corrupted metadata column — fallback to undefined
+    }
+  }
   return {
     sessionId: row.session_id,
     agentId: row.agent_id,
     channelId: row.channel_id ?? undefined,
     parentSessionId: row.parent_session_id ?? undefined,
-    turns: JSON.parse(row.turns),
+    turns,
     tokenCount: row.token_count,
-    metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    metadata,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };

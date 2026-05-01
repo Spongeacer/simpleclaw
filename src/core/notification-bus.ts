@@ -22,7 +22,10 @@ export class NotificationBus implements INotificationBus {
     const handlers = this.subs.get(taskId);
     if (!handlers) return;
     for (const h of handlers) {
-      try { h(taskId, notif); } catch {}
+      try { h(taskId, notif); } catch { /* handler errors must not break publishing */ }
+    }
+    if (handlers.size === 0) {
+      this.subs.delete(taskId);
     }
   }
 

@@ -90,7 +90,11 @@ export class DAGExecutor {
       const batch = pending.splice(0, batchSize);
 
       await Promise.all(
-        batch.map((stepId) => this.executeStep(stepId, dag, tools, hooks, resolvedArgs.get(stepId)!, options))
+        batch.map((stepId) => {
+          const args = resolvedArgs.get(stepId);
+          if (!args) throw new Error(`Resolved arguments missing for step "${stepId}"`);
+          return this.executeStep(stepId, dag, tools, hooks, args, options);
+        })
       );
     }
   }

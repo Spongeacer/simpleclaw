@@ -28,7 +28,7 @@ export function createBashTool(sandbox: ISandbox): ITool {
         ? Math.min(Math.max(1, args.timeout), 300)
         : 120;
 
-      const result: IExecResult = await (sandbox as any).exec(command, {
+      const result: IExecResult = await sandbox.exec(command, {
         timeoutMs: timeoutSec * 1000,
         maxOutputBytes: 10_000,
       });

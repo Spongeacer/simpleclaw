@@ -146,7 +146,7 @@ export class AgentEngine implements IAgentEngine {
         const prevTotal = (session.metadata?.totalToolCallRounds as number | undefined) ?? 0;
         session.metadata = { ...session.metadata, totalToolCallRounds: prevTotal + 1 };
 
-        const usePlan = this.shouldUsePlan(response.toolCalls, i);
+        const usePlan = this.shouldUsePlan(response.toolCalls, i, sessionId);
 
         if (usePlan) {
           // ─── Plan Mode: Parallel Execution ─────────────────────────────────────
@@ -995,7 +995,7 @@ export class AgentEngine implements IAgentEngine {
 
   // ─── Plan Mode ───────────────────────────────────────────────────────────────
 
-  private shouldUsePlan(toolCalls: ToolCall[], iteration: number): boolean {
+  private shouldUsePlan(toolCalls: ToolCall[], iteration: number, sessionId: SessionId): boolean {
     const mode = this.config.planMode ?? "auto";
     if (mode === "off") return false;
     if (mode === "always") return true;
@@ -1005,7 +1005,7 @@ export class AgentEngine implements IAgentEngine {
 
     // Also auto-activate on first iteration if complexity is high
     if (iteration === 0 && toolCalls.length > 0) {
-      const ws = this.workingSets.get(this.config.id);
+      const ws = this.workingSets.get(sessionId);
       const hasActiveTask = ws && (ws.task || ws.files.length > 0);
       if (hasActiveTask) return true;
     }
