@@ -229,6 +229,7 @@ export class AgentPool implements IAgentPool {
     const engine = this.engineFactory.create(subConfig, llm, subTools, {
       logger: subLogger,
       approval: subApproval,
+      depth,
     });
 
     // AbortController for cancellation support

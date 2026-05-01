@@ -8,7 +8,7 @@
  *   - Returns structured XML with subagent_session_id
  */
 
-import type { ITool, ILogger } from "../../core/interfaces.js";
+import type { ITool, ILogger, ToolContext } from "../../core/interfaces.js";
 import type { IAgentPool } from "../../core/interfaces.js";
 
 export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
@@ -89,7 +89,7 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
       required: ["task"],
       additionalProperties: false,
     },
-    execute: async (args) => {
+    execute: async (args, ctx?: ToolContext) => {
       const task = String(args.task);
       const description = args.description ? String(args.description) : undefined;
       const role = args.role ? String(args.role) : undefined;
@@ -110,11 +110,13 @@ export function createSpawnTool(pool: IAgentPool, logger: ILogger): ITool {
         resumed: !!sessionId,
         verbose,
         contextFiles: contextFiles?.length ?? 0,
+        depth: ctx?.depth ?? 0,
       });
 
       const result = await pool.spawn({
         task, description, role, model, tools, systemPrompt, sessionId,
         verbose, contextFiles, timeoutMs, maxIterations,
+        depth: (ctx?.depth ?? 0) + 1,
       });
       return result.result;
     },

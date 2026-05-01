@@ -55,6 +55,7 @@ export interface AgentEngineOptions {
   toolHooks?: IToolCallHooks;
   contextEngine?: IContextEngine;
   userMemory?: IUserMemory;
+  depth?: number;
 }
 
 export class AgentEngine implements IAgentEngine {
@@ -70,7 +71,10 @@ export class AgentEngine implements IAgentEngine {
     skillNudgeInterval: 10,
   };
 
+  private depth: number;
+
   constructor(private opts: AgentEngineOptions) {
+    this.depth = opts.depth ?? 0;
     this.contextEngine = opts.contextEngine ?? new ContextCompactor(opts.llm, opts.logger);
     this._validateCompactorConfig();
   }
@@ -343,7 +347,7 @@ export class AgentEngine implements IAgentEngine {
             }
 
             await this.runToolHook("beforeExecute", call, sessionId);
-            const result = await this.opts.tools.execute(call, { sessionId });
+            const result = await this.opts.tools.execute(call, { sessionId, depth: this.depth });
             await this.runToolHook("afterExecute", call, sessionId, result);
             yield { type: "tool_result", result };
             session.turns.push({

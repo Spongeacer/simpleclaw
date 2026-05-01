@@ -134,8 +134,12 @@ async function run() {
     assertIncludes(result, 'Test User', 'git blame should show author');
   }
 
-  // Cleanup
-  await rm(workspace, { recursive: true, force: true });
+  // Cleanup (ignore Windows EBUSY from locked .git directory)
+  try {
+    await rm(workspace, { recursive: true, force: true, maxRetries: 3 });
+  } catch {
+    // Best-effort cleanup on Windows
+  }
 
   // ── Summary ─────────────────────────────────────────────────────────────────
   console.log(`\n${passCount} passed, ${failCount} failed`);

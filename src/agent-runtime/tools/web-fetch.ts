@@ -11,7 +11,7 @@
 
 import type { ITool, ILogger } from "../../core/interfaces.js";
 import { checkSsrf } from "../ssrf-guard.js";
-import { buildFetchOptions } from "../net/fetch-proxy.js";
+import { fetchWithTimeout } from "../net/fetch-proxy.js";
 
 const MAX_CHARS = 8000;
 const TIMEOUT_MS = 60000;
@@ -92,22 +92,15 @@ export function createWebFetchTool(logger: ILogger): ITool {
       let lastErr: unknown;
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-          const proxyOpts = await buildFetchOptions(url);
-
-          const res = await fetch(url, {
+          const res = await fetchWithTimeout(url, {
             headers: {
               "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
               "Accept": "text/markdown,text/plain,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.1",
               "Accept-Language": "en-US,en;q=0.5",
             },
-            signal: controller.signal,
             redirect: "follow",
-            ...(proxyOpts as Record<string, unknown>),
+            timeoutMs: TIMEOUT_MS,
           });
-
-          clearTimeout(timeout);
 
           if (!res.ok) {
             const bodyPreview = await readErrorBody(res);

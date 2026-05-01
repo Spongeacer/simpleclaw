@@ -12,7 +12,7 @@
  * Use this only when parallel execution provides measurable benefit.
  */
 
-import type { ITool, ILogger, IAgentPool } from "../../core/interfaces.js";
+import type { ITool, ILogger, IAgentPool, ToolContext } from "../../core/interfaces.js";
 
 export function createSpawnMultipleTool(pool: IAgentPool, logger: ILogger): ITool {
   return {
@@ -105,7 +105,7 @@ export function createSpawnMultipleTool(pool: IAgentPool, logger: ILogger): IToo
       required: ["tasks"],
       additionalProperties: false,
     },
-    execute: async (args) => {
+    execute: async (args, ctx?: ToolContext) => {
       const description = args.description ? String(args.description) : undefined;
       const tasks = Array.isArray(args.tasks) ? args.tasks : [];
       const maxConcurrency = typeof args.max_concurrency === "number" ? args.max_concurrency : undefined;
@@ -118,6 +118,7 @@ export function createSpawnMultipleTool(pool: IAgentPool, logger: ILogger): IToo
         description,
         count: tasks.length,
         maxConcurrency,
+        depth: ctx?.depth ?? 0,
       });
 
       const result = await pool.spawnMultiple({
@@ -133,6 +134,7 @@ export function createSpawnMultipleTool(pool: IAgentPool, logger: ILogger): IToo
           contextFiles: Array.isArray(t.context_files) ? t.context_files.map(String) : undefined,
           timeoutMs: typeof t.timeout === "number" ? t.timeout * 1000 : undefined,
           maxIterations: typeof t.max_iterations === "number" ? t.max_iterations : undefined,
+          depth: (ctx?.depth ?? 0) + 1,
         })),
         maxConcurrency,
       });

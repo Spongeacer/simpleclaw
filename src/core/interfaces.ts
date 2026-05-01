@@ -370,6 +370,6 @@ export interface IAgentEngineFactory {
     config: AgentConfig,
     llm: ILLMClient,
     tools: IToolRegistry,
-    overrides?: { approval?: IApprovalGate; logger?: ILogger },
+    overrides?: { approval?: IApprovalGate; logger?: ILogger; depth?: number },
   ): IAgentEngine;
 }

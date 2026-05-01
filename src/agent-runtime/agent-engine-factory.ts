@@ -30,7 +30,7 @@ export class AgentEngineFactory implements IAgentEngineFactory {
     config: AgentConfig,
     llm: ILLMClient,
     tools: IToolRegistry,
-    overrides?: { approval?: IApprovalGate; logger?: ILogger },
+    overrides?: { approval?: IApprovalGate; logger?: ILogger; depth?: number },
   ): IAgentEngine {
     return new AgentEngine({
       config,
@@ -41,6 +41,7 @@ export class AgentEngineFactory implements IAgentEngineFactory {
       logger: overrides?.logger ?? this.logger,
       contextEngine: this.contextEngine,
       userMemory: this.userMemory,
+      depth: overrides?.depth,
     });
   }
 }

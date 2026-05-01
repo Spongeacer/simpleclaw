@@ -5,7 +5,7 @@
  */
 
 import type { ITool, ILogger } from "../../core/interfaces.js";
-import { buildFetchOptions } from "../net/fetch-proxy.js";
+import { fetchWithTimeout } from "../net/fetch-proxy.js";
 
 const MAX_RESULTS = 5;
 const MAX_SNIPPET_LEN = 300;
@@ -133,40 +133,28 @@ function extractError(err: unknown, provider: string): { short: string; full: st
 
 async function searchBing(query: string, maxResults: number): Promise<SearchResult[]> {
   const searchUrl = `https://cn.bing.com/search?q=${encodeURIComponent(query)}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
-  try {
-    const proxyOpts = await buildFetchOptions(searchUrl);
-    const res = await fetch(searchUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-      },
-      signal: controller.signal,
-      ...(proxyOpts as Record<string, unknown>),
-    });
-    clearTimeout(timeout);
-    if (!res.ok) {
-      throw new Error(`Bing returned HTTP ${res.status} ${res.statusText}`);
-    }
-    const html = await res.text();
-    return parseBingResults(html, maxResults);
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
+  const res = await fetchWithTimeout(searchUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    },
+    timeoutMs: SEARCH_TIMEOUT_MS,
+  });
+  if (!res.ok) {
+    throw new Error(`Bing returned HTTP ${res.status} ${res.statusText}`);
   }
+  const html = await res.text();
+  return parseBingResults(html, maxResults);
 }
 
 function parseBingResults(html: string, max: number): SearchResult[] {
   const results: SearchResult[] = [];
-  // Bing HTML may include extra attributes on the li tag, e.g. <li class="b_algo" data-id="...">
   const resultBlocks = html.split(/<li[^>]*class="b_algo"[^>]*>/);
 
   for (let i = 1; i < resultBlocks.length && results.length < max; i++) {
     const block = resultBlocks[i];
     const titleMatch = block.match(/<h2[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/h2>/);
-    // Snippet may be in <p> or inside <div class="b_caption">
     const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/) || block.match(/<div[^>]*class="b_caption"[^>]*>([\s\S]*?)<\/div>/);
 
     if (titleMatch) {
@@ -184,42 +172,29 @@ function parseBingResults(html: string, max: number): SearchResult[] {
 
 async function searchBaidu(query: string, maxResults: number): Promise<SearchResult[]> {
   const searchUrl = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
-  try {
-    const proxyOpts = await buildFetchOptions(searchUrl);
-    const res = await fetch(searchUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "Cookie": "BAIDUID=test",
-      },
-      signal: controller.signal,
-      ...(proxyOpts as Record<string, unknown>),
-    });
-    clearTimeout(timeout);
-    if (!res.ok) {
-      throw new Error(`Baidu returned HTTP ${res.status} ${res.statusText}`);
-    }
-    const html = await res.text();
-    return parseBaiduResults(html, maxResults);
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
+  const res = await fetchWithTimeout(searchUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "Cookie": "BAIDUID=test",
+    },
+    timeoutMs: SEARCH_TIMEOUT_MS,
+  });
+  if (!res.ok) {
+    throw new Error(`Baidu returned HTTP ${res.status} ${res.statusText}`);
   }
+  const html = await res.text();
+  return parseBaiduResults(html, maxResults);
 }
 
 function parseBaiduResults(html: string, max: number): SearchResult[] {
   const results: SearchResult[] = [];
-  // Baidu results are in <div class="result"> elements (sometimes with extra classes)
   const resultBlocks = html.split(/<div[^>]*class="result[^"]*"[^>]*>/);
 
   for (let i = 1; i < resultBlocks.length && results.length < max; i++) {
     const block = resultBlocks[i];
-    // Title: <h3 class="t"> <a href="...">title</a> </h3>
     const titleMatch = block.match(/<h3[^>]*class="t"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/h3>/);
-    // Snippet: various class names, try a few patterns
     const snippetMatch =
       block.match(/<span[^>]*class="content-right_[^"]*"[^>]*>([\s\S]*?)<\/span>/) ||
       block.match(/<div[^>]*class="content-right_[^"]*"[^>]*>([\s\S]*?)<\/div>/) ||
@@ -227,7 +202,6 @@ function parseBaiduResults(html: string, max: number): SearchResult[] {
 
     if (titleMatch) {
       let url = titleMatch[1];
-      // Baidu sometimes wraps URLs in redirect: https://www.baidu.com/link?url=...
       if (url.startsWith("/link?")) {
         url = "https://www.baidu.com" + url;
       }

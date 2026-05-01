@@ -62,3 +62,31 @@ export async function buildFetchOptions(
   const dispatcher = await getProxyDispatcher();
   return dispatcher ? { dispatcher } : {};
 }
+
+/**
+ * Fetch with timeout and proxy support.
+ * Automatically applies proxy dispatcher and aborts after the given timeout.
+ * Returns the Response object on success; throws on network/timeout errors.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  init: RequestInit & { timeoutMs?: number },
+): Promise<Response> {
+  const timeoutMs = init.timeoutMs ?? 30000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const proxyOpts = await buildFetchOptions(url);
+    const res = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      ...(proxyOpts as Record<string, unknown>),
+    });
+    clearTimeout(timeout);
+    return res;
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
+}
